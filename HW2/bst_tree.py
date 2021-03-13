@@ -94,39 +94,50 @@ def postorder(root):
 
 class KNNResultSet:
     def __init__(self, capacity):
-        self.capacity=capacity
-        self.count =0
+        self.capacity = capacity
+        self.count = 0
         self.worst_dist = 1e10
-        self.dist_index_list=[]
+        self.dist_index_list = []
         for i in range(capacity):
-            self.dist_index_list.append(DistIndex(self.worst_dist,0))
-            
-        self.comparison_counter =0
+            self.dist_index_list.append(DistIndex(self.worst_dist, 0))
+
+        self.comparison_counter = 0
+
     def size(self):
         return self.count
+
     def full(self):
-        return self.count==self.capacity
+        return self.count == self.capacity
+
     def worstDist(self):
         return self.worst_dist
-    
-    def add_point(self,dist,index):
-        self.comparison_counter +=1
-        if dist>self.worst_dist:
+
+    def add_point(self, dist, index):
+        self.comparison_counter += 1
+        if dist > self.worst_dist:
             return
-        if self.count<self.capacity:
-            self.count+=1
-            
-        i =self.count-1
-        while i>0:
-            if self.dist_index_list[i-1].distance >dist:
-                self.dist_index_list[i]=copy.deepcopy(self.dist_index_list[i-1])
-                i-=1
+
+        if self.count < self.capacity:
+            self.count += 1
+
+        i = self.count - 1
+        while i > 0:
+            if self.dist_index_list[i-1].distance > dist:
+                self.dist_index_list[i] = copy.deepcopy(self.dist_index_list[i-1])
+                i -= 1
             else:
                 break
-        self.dist_index_list[i].distance =dist
-        self.dist_index_list[i].index=dist
-        self.worst_dist=self.dist_index_list[self.capacity-1].distance
 
+        self.dist_index_list[i].distance = dist
+        self.dist_index_list[i].index = index
+        self.worst_dist = self.dist_index_list[self.capacity-1].distance
+        
+    def __str__(self):
+        output = ''
+        for i, dist_index in enumerate(self.dist_index_list):
+            output += '%d - %.2f\n' % (dist_index.index, dist_index.distance)
+        output += 'In total %d comparison operations.' % self.comparison_counter
+        return output
 class DistIndex:
     def __init__(self,distance, index):
         self.distance = distance
@@ -134,26 +145,30 @@ class DistIndex:
     def __lt__(self,other):
         return self.distance <other.distance
     
-def knn_search(root: Node, result_set:KNNResultSet,key):
+def knn_search(root: Node, result_set: KNNResultSet, key):
     if root is None:
         return False
-    
-    result_set.add_point(math.fabs(root.key-key),root.value)
-    if result_set.worstDist()==0:
+
+    # compare the root itself
+    result_set.add_point(math.fabs(root.key - key), root.value)
+    if result_set.worstDist() == 0:
         return True
-    
-    if root.key >=key:
-        if knn_search(root.left,result_set,key):
+
+    if root.key >= key:
+        # iterate left branch first
+        if knn_search(root.left, result_set, key):
             return True
-        elif math.fabs(root.key-key)<result_set.worstDist():
-            return knn_search(root.left,result_set,key)
+        elif math.fabs(root.key-key) < result_set.worstDist():
+            return knn_search(root.right, result_set, key)
         return False
     else:
-        if knn_search(root.right,result_set,key):
+        # iterate right branch first
+        if knn_search(root.right, result_set, key):
             return True
-        elif math.fabs(root.key-key)<result_set.worstDist():
-            return knn_search(root.left,result_set,key)
+        elif math.fabs(root.key-key) < result_set.worstDist():
+            return knn_search(root.left, result_set, key)
         return False
+
     
 db_size =8
 k =5
@@ -164,10 +179,12 @@ print("data",data)
 root = None
 for i,point in enumerate(data):
     root =insert(root,point,i)
-query_key =3
+query_key =6
 result_set =KNNResultSet(capacity=k)
 knn_search(root,result_set,query_key)
 print("kNN search")
 print("index - distance")
-print(result_set.comparison_counter)
-print(result_set.worst_dist)# = Ra
+print(result_set)
+
+#print(result_set.comparison_counter)
+#print(result_set.worst_dist)# = Ra
