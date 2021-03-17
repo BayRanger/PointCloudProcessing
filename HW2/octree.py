@@ -64,10 +64,33 @@ def octree_recursive_build(root, db, center, extent, point_indices, leaf_size, m
     if len(point_indices) <= leaf_size or extent <= min_extent:
         root.is_leaf = True
     else:
-        # 作业4
-        # 屏蔽开始
-        
-        # 屏蔽结束
+        root.is_leaf = False
+        children_point_indices = [[] for i in range(8)]
+        for point_idx in point_indices:
+            point_db = db[point_idx]
+            morton_code = 0
+            if point_db[0] > center[0]:
+                morton_code = morton_code | 1  #"|" means OR in python
+            if point_db[1] > center[1]:
+                morton_code = morton_code | 2
+            if point_db[2] > center[2]:
+                morton_code = morton_code | 4
+            children_point_indices[morton_code].append(point_idx)
+        # create children
+        factor = [-0.5, 0.5]
+        for i in range(8):
+            child_center_x = center[0] + factor[(i & 1) > 0] * extent
+            child_center_y = center[1] + factor[(i & 2) > 0] * extent
+            child_center_z = center[2] + factor[(i & 4) > 0] * extent
+            child_extent = 0.5 * extent
+            child_center = np.asarray([child_center_x, child_center_y, child_center_z])
+            root.children[i] = octree_recursive_build(root.children[i],
+                                                      db,
+                                                      child_center,
+                                                      child_extent,
+                                                      children_point_indices[i],
+                                                      leaf_size,
+                                                      min_extent)
     return root
 
 # 功能：判断当前query区间是否在octant内
@@ -188,7 +211,16 @@ def octree_radius_search(root: Octant, db: np.ndarray, result_set: RadiusNNResul
 
     # 作业6
     # 屏蔽开始
-    
+     # no need to go to most relevant child first, because anyway we will go through all children
+    for c, child in enumerate(root.children):
+        if child is None:
+            continue
+        if False == overlaps(query, result_set.worstDist(), child):
+            continue
+        if octree_radius_search_fast(child, db, result_set, query):
+            return True
+
+    return inside(query, result_set.worstDist(), root)
     # 屏蔽结束
 
     # final check of if we can stop search
@@ -215,6 +247,28 @@ def octree_knn_search(root: Octant, db: np.ndarray, result_set: KNNResultSet, qu
 
     # 作业7
     # 屏蔽开始
+        # go to the relevant child first
+    morton_code = 0
+    if query[0] > root.center[0]:
+        morton_code = morton_code | 1
+    if query[1] > root.center[1]:
+        morton_code = morton_code | 2
+    if query[2] > root.center[2]:
+        morton_code = morton_code | 4
+
+    if octree_knn_search(root.children[morton_code], db, result_set, query):
+        return True
+
+    # check other children
+    for c, child in enumerate(root.children):
+        if c == morton_code or child is None:
+            continue
+        if False == overlaps(query, result_set.worstDist(), child):
+            continue
+        if octree_knn_search(child, db, result_set, query):
+            return True
+
+    # final check of if we can stop search
     
     # 屏蔽结束
 
@@ -256,16 +310,16 @@ def main():
     # traverse_octree(root, depth, max_depth)
     # print("tree max depth: %d" % max_depth[0])
 
-    # query = np.asarray([0, 0, 0])
-    # result_set = KNNResultSet(capacity=k)
-    # octree_knn_search(root, db_np, result_set, query)
-    # print(result_set)
+    query = np.asarray([0, 0, 0])
+    result_set = KNNResultSet(capacity=k)
+    octree_knn_search(root, db_np, result_set, query)
+    print(result_set)
     #
-    # diff = np.linalg.norm(np.expand_dims(query, 0) - db_np, axis=1)
-    # nn_idx = np.argsort(diff)
-    # nn_dist = diff[nn_idx]
-    # print(nn_idx[0:k])
-    # print(nn_dist[0:k])
+    diff = np.linalg.norm(np.expand_dims(query, 0) - db_np, axis=1)
+    nn_idx = np.argsort(diff)
+    nn_dist = diff[nn_idx]
+    print(nn_idx[0:k])
+    print(nn_dist[0:k])
 
     begin_t = time.time()
     print("Radius search normal:")
