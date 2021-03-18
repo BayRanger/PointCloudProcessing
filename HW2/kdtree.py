@@ -53,6 +53,42 @@ def axis_round_robin(axis, dim):
         return 0
     else:
         return axis + 1
+def getMaxVarAxis(db):
+    db_var_list=np.var(db,axis=0)
+    max_axis= np.argmax(db_var_list)
+    return max_axis
+def getMeanLeftRightIdxSet(db,point_indices, axis):
+    db_mean=np.mean(db[point_indices,axis])
+    left_idx_set=[]
+    right_idx_set=[]
+    for i,e in enumerate(db[point_indices, axis]):
+        if (e<db_mean):
+            left_idx_set.append(i)
+        else:
+            right_idx_set.append(i)
+    return point_indices[left_idx_set],point_indices[right_idx_set],db_mean
+    
+def getMeanLeftRightIdxSetwithNumpy(db,point_indices, axis):
+    db_mean=np.mean(db[point_indices,axis])
+    pointidx_larger=point_indices[db[point_indices,axis]>db_mean]
+    pointidx_smaller=point_indices[db[point_indices,axis]<=db_mean]
+    return pointidx_larger,pointidx_smaller,db_mean
+
+
+def getMedianLeftRightIdxSet(db,point_indices, axis):
+    point_indices_sorted, _ = sort_key_by_vale(point_indices, db[point_indices,axis])
+    middle_left_idx = math.ceil(point_indices_sorted.shape[0]/2)-1
+    middle_left_point_idx = point_indices_sorted[middle_left_idx]
+    middle_left_point_value = db[middle_left_point_idx,axis]
+    
+    middle_right_idx = middle_left_idx +1
+    middle_right_point_idx = point_indices_sorted[middle_right_idx]
+    middle_right_point_value=db[middle_right_point_idx,axis] 
+    root_value=(middle_left_point_value + middle_right_point_value) * 0.5
+    left_idx= point_indices_sorted[0:middle_right_idx]
+    right_idx= point_indices_sorted[middle_right_idx:]
+    return left_idx, right_idx,root_value
+    
 
 # 功能：通过递归的方式构建树
 # 输入：
@@ -70,24 +106,18 @@ def kdtree_recursive_build(root, db, point_indices, axis, leaf_size):
     # determine whether to split into left and right
     if len(point_indices) > leaf_size:
         # --- get the split position ---
-        point_indices_sorted, _ = sort_key_by_vale(point_indices, db[point_indices, axis])  # M
-        middle_left_idx = math.ceil(point_indices_sorted.shape[0]/2)-1
-        middle_left_point_idx = point_indices_sorted[middle_left_idx]
-        middle_left_point_value = db[middle_left_point_idx,axis]
-        
-        middle_right_idx = middle_left_idx +1
-        middle_right_point_idx = point_indices_sorted[middle_right_idx]
-        middle_right_point_value=db[middle_right_point_idx,axis]
-        root.value = (middle_left_point_value + middle_right_point_value) * 0.5
+        left_idx,right_idx,root.value = getMedianLeftRightIdxSet(db,point_indices,axis)
+        new_axis=axis_round_robin(axis, dim=db.shape[1])
+        #new_axis=getMaxVarAxis(db[point_indices,:])
         root.left = kdtree_recursive_build(root.left,
                                            db,
-                                           point_indices_sorted[0:middle_right_idx],
-                                           axis_round_robin(axis, dim=db.shape[1]),
+                                           left_idx,
+                                           new_axis,
                                            leaf_size)
         root.right = kdtree_recursive_build(root.right,
                                            db,
-                                           point_indices_sorted[middle_right_idx:],
-                                           axis_round_robin(axis, dim=db.shape[1]),
+                                           right_idx,
+                                           new_axis,
                                            leaf_size)
 
     return root
@@ -104,7 +134,8 @@ def traverse_kdtree(root: Node, depth, max_depth):
         max_depth[0] = depth[0]
 
     if root.is_leaf():
-        print(root)
+        pass
+        #print(root)
     else:
         traverse_kdtree(root.left, depth, max_depth)
         traverse_kdtree(root.right, depth, max_depth)
@@ -212,7 +243,17 @@ def main():
     k = 1
 
     db_np = np.random.rand(db_size, dim)
-    print("db is",db_np)
+    #print("db is",db_np)
+    db_var = np.var(db_np[:, 1])
+    #db_var_list=[np.var(db_np[:,i]) for i in db_np.shape()[1]]
+    #db_mean=np.mean(db_np[:,1])
+    #db_larger=db_np[db_np[:,1]>db_mean]
+    db_var_list=np.var(db_np,axis=0)
+    max_axis_idx= np.argmax(db_var_list)
+
+    #print("db in one  axis:",np.mean(db_np[:, 1]))
+    print("db var",db_var_list)
+    print("idx ",max_axis_idx)
     root = kdtree_construction(db_np, leaf_size=leaf_size)
 
     depth = [0]
