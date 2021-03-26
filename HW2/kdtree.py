@@ -91,7 +91,7 @@ def getMedianLeftRightIdxSet(db,point_indices, axis):
 #     leaf_size: scalar
 # 输出：
 #     root: 即构建完成的树
-def kdtree_recursive_build(root, db, point_indices, axis, leaf_size):
+def kdtree_recursive_build(root, db, point_indices, axis, leaf_size,feature,feature2):
     """
 
     :param root:
@@ -110,19 +110,27 @@ def kdtree_recursive_build(root, db, point_indices, axis, leaf_size):
         # --- get the split position ---
         #root.value = (middle_left_point_value + middle_right_point_value) * 0.5
         # === get the split position ===
-        left_point_indices,right_point_indices,root.value = getMeanLeftRightIdxSetwithNumpy(db,point_indices, axis)
-        #new_axis= axis_round_robin(axis, dim=db.shape[1])
-        new_axis=getMaxVarAxis(db[point_indices])
+        if (feature=='mean'):
+            left_point_indices,right_point_indices,root.value = getMeanLeftRightIdxSetwithNumpy(db,point_indices, axis)
+        elif (feature=="meanraw"):
+            left_point_indices,right_point_indices,root.value = getMeanLeftRightIdxSet(db,point_indices, axis)
+        else:
+            left_point_indices,right_point_indices,root.value = getMedianLeftRightIdxSet(db,point_indices, axis)
+        if (feature2=='adapt'):
+            new_axis=getMaxVarAxis(db[point_indices])
+        else:
+            new_axis= axis_round_robin(axis, dim=db.shape[1])
+            
         root.left = kdtree_recursive_build(root.left,
                                            db,
                                            left_point_indices,
                                             new_axis,
-                                           leaf_size)
+                                           leaf_size,feature,feature2)
         root.right = kdtree_recursive_build(root.right,
                                            db,
                                            right_point_indices,
                                            new_axis,
-                                           leaf_size)
+                                           leaf_size,feature,feature2)
     return root
 
 
@@ -141,16 +149,17 @@ def traverse_kdtree(root: Node, depth, max_depth):
     depth[0] -= 1
 
 
-def kdtree_construction(db_np, leaf_size):
+def kdtree_construction(db_np, leaf_size,feature_=None,feature2_=None):
     N, dim = db_np.shape[0], db_np.shape[1]
 
     # build kd_tree recursively
     root = None
+    print("features are",feature_,feature2_)
     root = kdtree_recursive_build(root,
                                   db_np,
                                   np.arange(N),
                                   axis=0,
-                                  leaf_size=leaf_size)
+                                  leaf_size=leaf_size,feature=feature_,feature2=feature2_)
     return root
 
 
