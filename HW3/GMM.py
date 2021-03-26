@@ -19,9 +19,7 @@ def cov(data):
     data = data - data_mean
     return data.transpose()@data/(n-1)
 
-def weight_cov(data,weight):
-    n= np.shape(data)[0]
-    data_mean = np.mean(data,axis=0)
+def weight_cov(data,weight,data_mean,n):
     data = data - data_mean
     return weight*data.transpose()@data/(n-1)
     
@@ -44,15 +42,6 @@ class GMM(object):
     '''
     
     # 屏蔽开始
-    # 更新W
-    
-
-    # 更新pi
- 
-        
-    # 更新Mu
-
-
     # 更新Var
 
 
@@ -66,23 +55,28 @@ class GMM(object):
         if (not self.isinited_):
             self.gmm_init(data)
             self.isinited_ = True
-        for time in range(100):
+        for time in range(self.max_iter):
             for i in range(self.k_):
                 self.weight_[:,i]=self.pi_[i]*multivariate_normal.pdf(data,self.cluster_center_[i],self.cluster_cov_[i])
-                print("cov",self.cluster_cov_[i])
+                #print("cov",self.cluster_cov_[i])
+            # 更新W
+
                 #print("weight",self.weight_)
             self.weight_ = self.weight_/np.sum(self.weight_,axis=1,keepdims=True)
-            print("end weight",self.weight_)
+            #print("end weight",self.weight_)
             #maximization
             n_k = np.sum(self.weight_,axis=0)
-            print("N_K",n_k)
+            #print("N_K",n_k)
+            # 更新pi
             self.pi_= n_k/self.n_
-            print("pi",self.pi_)
+            #print("pi",self.pi_)
             for i in range(self.k_):
+                # 更新Mu
                 self.cluster_center_[i]= 1/n_k[i]*np.sum(((self.weight_[:,i])[:,None]*data),axis=0)
-                self.cluster_cov_[i]=weight_cov(data,self.weight_[:,i])
+                # 更新Var
+                self.cluster_cov_[i]=weight_cov(data,self.weight_[:,i],self.cluster_center_[i],n_k[i])
                 #print("cluster cov",self.cluster_cov_[i])              
-            print("cluster center",self.cluster_center_)
+            #print("cluster center",self.cluster_center_)
             #
             #tmp=0
             #for i in range(self.k_):
@@ -97,24 +91,23 @@ class GMM(object):
         # 屏蔽结束
     
     def predict(self, data):
-        # 屏蔽开始
-        
-        pass
+        idx = np.argmax(self.weight_,axis=1)
+        #print("idx",idx)
+        return idx
 
-        # 屏蔽结束
     def gmm_init(self,data):        
-        #data_max=np.max(data,axis=0)
-        #data_min=np.min(data,axis=0)
-        #data=np.array(data)
+        data_max=np.max(data,axis=0)
+        data_min=np.min(data,axis=0)
+        data=np.array(data)
         print("total data size",np.shape(data))
         self.n_ = np.shape(data)[0]
         #init weight
         self.weight_ = np.zeros((self.n_,self.k_))
-        true_Mu = [[0.5, 1], [5.5, 2.5], [1, 7]]
+        #true_Mu = [[0.5, 1], [5.5, 2.5], [1, 7]]
 
         for i in range(self.k_):
             #random selection
-            self.cluster_center_[i]=true_Mu[i]
+            self.cluster_center_[i]=data[i]
             #data_min+ (data_max-data_min)/self.k_*i
         self.cluster_center_=np.array(self.cluster_center_)
         r_state = self.closest_centroid(data, self.cluster_center_)
@@ -168,8 +161,8 @@ if __name__ == '__main__':
     gmm = GMM(n_clusters=3)
     gmm.gmm_init(X)
     gmm.fit(X)
-    #cat = gmm.predict(X)
-    #print(cat)
+    cat = gmm.predict(X)
+    print(cat)
     # 初始化
 
     

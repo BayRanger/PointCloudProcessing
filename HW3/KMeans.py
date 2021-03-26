@@ -11,26 +11,27 @@ class K_Means(object):
         self.isinited_ = False
         self.cluster_center_=[None]*n_clusters
         
+    """returns an array containing the index to the nearest centroid for each point"""
     def closest_centroid(self,points, centroids):
-        """returns an array containing the index to the nearest centroid for each point"""
         centroids=np.array(centroids)
         distances = np.sqrt(((points - centroids[:, np.newaxis])**2).sum(axis=2))
         return np.argmin(distances, axis=0)
         
 
     def fit(self, data):
-        # TODO:
         r_state=np.zeros(data.shape[0])
         # use uniform distribution to initialze the data
         if (not self.isinited_):
             self.center_init(data)
             self.isinited_ = True
         for i in range(self.max_iter_):
-            #some presiquite
-            if (0):
-                break
+            #print("i",i)
             #expection
+            state_prev= r_state
             r_state = self.closest_centroid(data, self.cluster_center_)
+            #print(state_prev,r_state)
+            if ((state_prev==r_state).all):
+                break
             #maximization
             self.maximization(r_state,data)
         return 

@@ -17,6 +17,7 @@ from itertools import cycle, islice
 
 from KMeans import K_Means
 from GMM import GMM
+from spectral_clustering import spec_cluster
 
 np.random.seed(0)
 
@@ -115,9 +116,7 @@ for i_dataset, (dataset, algo_params) in enumerate(datasets):
         n_clusters=params['n_clusters'], eigen_solver='arpack',
         affinity="nearest_neighbors")
     dbscan = cluster.DBSCAN(eps=params['eps'])
-    optics = cluster.OPTICS(min_samples=params['min_samples'],
-                            xi=params['xi'],
-                            min_cluster_size=params['min_cluster_size'])
+    my_spec =  spec_cluster(n_clusters=params['n_clusters'])
     affinity_propagation = cluster.AffinityPropagation(
         damping=params['damping'], preference=params['preference'])
     average_linkage = cluster.AgglomerativeClustering(
@@ -137,7 +136,7 @@ for i_dataset, (dataset, algo_params) in enumerate(datasets):
         ('Ward', ward),
         ('AgglomerativeClustering', average_linkage),
         ('DBSCAN', dbscan),
-        ('OPTICS', optics),
+        ('My_Spectral', my_spec),
         ('Birch', birch),
         ('GaussianMixture', gmm)
     )
