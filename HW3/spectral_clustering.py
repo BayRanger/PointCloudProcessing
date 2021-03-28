@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from scipy.stats import multivariate_normal
 from KMeans import K_Means
-a =4 
-a=[1,2,3,4]
+from scipy.spatial import KDTree
+
+
 def get_dist(pointA,pointB):
     return(np.linalg.norm(np.array(pointA)-np.array(pointB)))
 
@@ -33,8 +34,9 @@ class spec_cluster(object):
         self.isinited_ = False
         self.cluster_center_=[None]*n_clusters
         
-    def fit(self,data,method="fully_connect"):
+    def fit(self,data,method="knn"):
         data_num = np.shape(data)[0]
+        print("number of data ",data_num)
         self.simi_graph=np.zeros((data_num,data_num))
         if method=="fully_connect":
             for i in range(np.shape(data)[0]):
@@ -44,10 +46,21 @@ class spec_cluster(object):
             #for i in range(np.shape(data)[0]):
             #    self.simi_graph[i,i]=0
             #print(self.simi_graph)
-        elif (method=="knn"):
-            pass
         elif (method=="radius"):
             pass
+        elif (method=="knn"):
+            print("knn is implemented")
+            tree=KDTree(data)
+            for di, datum in enumerate(data):
+                ndists,nis = tree.query([datum],20)
+                nis=nis[0]
+                ndists = ndists[0]
+                for ni,ndist in zip(nis,ndists):
+                    if ni==di: continue
+                    #print("HHHHHH",ni,di,ndist)
+                    self.simi_graph[di][ni]=self.simi_graph[ni][di]=gauss(ndist)
+            
+            
         else:
             print("not available")
         #print(self.simi_graph)
@@ -61,15 +74,16 @@ class spec_cluster(object):
         eigenvalues, eigenvectors = np.linalg.eig(self.lap_mat)
         sort = eigenvalues.argsort()
         eigenvalues = eigenvalues[sort]
-        print("eigenvalues",eigenvalues)
-        print("eigenvalue",eigenvalues)
+        #print("eigenvalues",eigenvalues)
+        #print("eigenvalue",eigenvalues)
         eigenvectors = eigenvectors[:, sort]
         k_eigenvectors=eigenvectors[:,:self.k_]
+        #print("eigen vectors", eigenvectors)
+        print("k eigen shape",np.shape(k_eigenvectors))
         k_means = K_Means(self.k_)
         #print("eigen shape",np.shape(k_eigenvectors))
         k_means.fit(k_eigenvectors)
         cat = k_means.predict(k_eigenvectors)
-        print(cat)
         return cat
         
 
@@ -99,14 +113,14 @@ if __name__ == '__main__':
     # 生成数据
     true_Mu = [[0.5, 0.5], [5.5, 2.5], [1, 7]]
     true_Var = [[1, 3], [2, 2], [6, 2]]
-    X = generate_X(true_Mu, true_Var)
+    #x = generate_X(true_Mu, true_Var)
     x = np.array([[1, 2], [1.5, 1.8], [5, 8], [8, 8], [1, 0.6], [9, 11]])
 
     #print(np.shape(x))
     spec_cls =spec_cluster(2)
     spec_cls.fit(x)
-    spec_cls.predict(x)
-    
+    cat =spec_cls.predict(x)
+    print(cat)
 
 
     #cat = gmm.predict(X)

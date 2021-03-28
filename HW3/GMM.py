@@ -75,14 +75,6 @@ class GMM(object):
                 self.cluster_center_[i]= 1/n_k[i]*np.sum(((self.weight_[:,i])[:,None]*data),axis=0)
                 # 更新Var
                 self.cluster_cov_[i]=weight_cov(data,self.weight_[:,i],self.cluster_center_[i],n_k[i])
-                #print("cluster cov",self.cluster_cov_[i])              
-            #print("cluster center",self.cluster_center_)
-            #
-            #tmp=0
-            #for i in range(self.k_):
-            #    tmp =tmp+ self.pi_[i]*multivariate_normal.pdf(data,self.cluster_center_[i],self.cluster_cov_[i])
-            #tmp=np.sum(np.log(tmp)) 
-            #print("benchmark",tmp)   
      
 
     
@@ -121,7 +113,7 @@ class GMM(object):
             self.pi_[i] = np.sum(self.weight_[:,i])/self.n_
             print(i,",prob ",self.pi_[i])
             
-        print("weight",self.weight_)
+        #print("weight",self.weight_)
      
     #returns an array containing the index to the nearest centroid for each point
     def closest_centroid(self,points, centroids):

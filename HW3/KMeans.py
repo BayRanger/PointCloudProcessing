@@ -24,6 +24,7 @@ class K_Means(object):
         if (not self.isinited_):
             self.center_init(data)
             self.isinited_ = True
+        count =0
         for i in range(self.max_iter_):
             #print("i",i)
             #expection
@@ -31,7 +32,11 @@ class K_Means(object):
             r_state = self.closest_centroid(data, self.cluster_center_)
             #print(state_prev,r_state)
             if ((state_prev==r_state).all):
-                break
+                count+=1
+                if (count>1):
+                    break
+            else:
+                count=0
             #maximization
             self.maximization(r_state,data)
         return 
@@ -42,12 +47,42 @@ class K_Means(object):
         for i in range(self.k_):
             self.cluster_center_[i]=np.mean(data[cur_state==i],axis=0)
                 
-    def center_init(self, data):
-        data_max=np.max(data,axis=0)
-        data_min=np.min(data,axis=0)
-        for i in range(self.k_):
-            self.cluster_center_[i]=data_min+ (data_max-data_min)/self.k_*i
-        self.cluster_center_=np.array(self.cluster_center_)   
+    def center_init(self, data,type=2):
+        if (type==1):
+            data_max=np.max(data,axis=0)
+            data_min=np.min(data,axis=0)
+            for i in range(self.k_):
+                self.cluster_center_[i]=data_min+ (data_max-data_min)/self.k_*i
+            self.cluster_center_=np.array(self.cluster_center_) 
+        elif (type==2):
+            data=np.array(data)
+            data_size=np.shape(data)[0]
+            sort = np.argsort(data,axis=0)
+            for i in range(self.k_):
+                idx = sort[int(data_size/(self.k_+2))*(i+1)][0]
+                print(i,",",idx)
+                self.cluster_center_[i]=data[idx]
+            self.cluster_center_=np.array(self.cluster_center_) 
+        elif (type==3):
+            data=np.array(data)
+            data_size=np.shape(data)[0]
+            sort = np.argsort(data,axis=0)
+            for i in range(self.k_):
+                idx = sort[int(data_size/(self.k_))*i][0]
+                print(i,",",idx)
+                self.cluster_center_[i]=data[idx]
+            self.cluster_center_=np.array(self.cluster_center_) 
+        else:
+            data=np.array(data)
+            data_size=np.shape(data)[0]
+            for i in range(self.k_):
+                idx = int(data_size/self.k_)*i
+                print("idx",idx)
+                self.cluster_center_[i]=data[idx]
+            self.cluster_center_=np.array(self.cluster_center_) 
+            
+            
+         
         
 
         
