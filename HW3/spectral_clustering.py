@@ -11,7 +11,8 @@ from matplotlib.patches import Ellipse
 from scipy.stats import multivariate_normal
 from KMeans import K_Means
 from scipy.spatial import KDTree
-
+import kdtree as kdtree
+from result_set import KNNResultSet, RadiusNNResultSet
 
 def get_dist(pointA,pointB):
     return(np.linalg.norm(np.array(pointA)-np.array(pointB)))
@@ -34,7 +35,7 @@ class spec_cluster(object):
         self.isinited_ = False
         self.cluster_center_=[None]*n_clusters
         
-    def fit(self,data,method="knn"):
+    def fit(self,data,method="radius"):
         data_num = np.shape(data)[0]
         print("number of data ",data_num)
         self.simi_graph=np.zeros((data_num,data_num))
@@ -47,7 +48,21 @@ class spec_cluster(object):
             #    self.simi_graph[i,i]=0
             #print(self.simi_graph)
         elif (method=="radius"):
-            pass
+            root = kdtree.kdtree_construction(data, 16)
+            for di, datum in enumerate(data):
+                #print(datum)
+                result_set = RadiusNNResultSet(radius=10)
+                kdtree.kdtree_radius_search(root, data, result_set, datum)
+                nis = result_set.index_list
+                ndists = result_set.dist_list
+                #print("nis",nis)
+                #print("ndists",ndists)
+                for ni,ndist in zip(nis,ndists):
+                    self.simi_graph[di][ni]=self.simi_graph[ni][di]=gauss(ndist,0.2)
+                #print("graph",self.simi_graph)
+                
+
+                        
         elif (method=="knn"):
             print("knn is implemented")
             tree=KDTree(data)

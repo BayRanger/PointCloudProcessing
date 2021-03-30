@@ -11,10 +11,64 @@ from itertools import cycle, islice
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import open3d as o3d 
+import random
 from pyntcloud import PyntCloud
+from numpy.linalg import svd
 
-def ransac(data):
+def add_one_column(raw_data):
+    data_size = np.shape(raw_data)[0]
+    data=np.ones((data_size,4))
+    data[:,:3] = raw_data
     return data
+
+def line_param_estiamte(data):
+    data=add_one_column(data[:3])
+    return svd(data)[-1][-1,:]
+
+def is_inliner(param,threshold,data):
+    #try to use broadcast
+    data = add_one_column(data)
+    result = np.abs(np.array(param)@(data.transpose()))/np.sqrt(np.sum(np.array(param)**2))
+    return (result<threshold)
+# function test    
+def is_inliner_test():
+    param=[1,1,1,0]
+    data= np.array([[0,0,0],[1,1,1]])
+    if((is_inliner(param,1,data)==[True,False]).all()):
+        print("is_inliner_test pass")
+    else:
+        print("is_inliner_test fails")
+     
+
+def run_ransac(data,threshold=0.2,max_iterations=100,subset_size=1000,goal_inliner_ratio=0.9):
+    #init value
+    max_inliner=0
+    best_param = None
+    #for loop 
+    data_size= np.shape(data)[0]
+    for i in range(max_iterations):
+        sample_idx=random.sample(range(data_size),subset_size)
+        sub_data= data[sample_idx]
+        param= line_param_estiamte(sub_data[:4])
+        inliner_idx=is_inliner(param,threshold,sub_data)
+        inliner_size=np.shape(sub_data[inliner_idx])[0]
+        if inliner_size>max_inliner:
+            best_param = param
+            max_inliner= inliner_size
+            print("new max ",max_inliner)
+        elif(0):
+            #other conditon to stop
+            pass
+        
+    return best_param
+        
+
+        
+    #random select point
+    #fit the model
+    #calulate inliners
+    
+    #find the best one.
 
 # 功能：从kitti的.bin格式点云文件中读取点云
 # 输入：
@@ -42,13 +96,18 @@ def read_velodyne_bin(path):
 def ground_segmentation(data):
     # 作业1
     # 屏蔽开始
+    param = run_ransac(data)
+    inline_indices = is_inliner(param,0.2,data)
+    filtered_data =(data[inline_indices==False])
+    print("filtered size ",filtered_data.shape)
+    return filtered_data
 
 
     # 屏蔽结束
 
-    print('origin data points num:', data.shape[0])
-    print('segmented data points num:', segmengted_cloud.shape[0])
-    return segmengted_cloud
+    #print('origin data points num:', data.shape[0])
+    #print('segmented data points num:', segmengted_cloud.shape[0])
+    #return segmengted_cloud
 
 # 功能：从点云中提取聚类
 # 输入：
@@ -99,4 +158,21 @@ def main():
         plot_clusters(segmented_points, cluster_index)
 
 if __name__ == '__main__':
-    main()
+    #main()
+    filename="/home/chahe/project/PointCloud3D/PointCloudProcessing/HW4/000000.bin"
+            #point_cloud_pynt = PyntCloud.from_file(filename)
+    origin_points = read_velodyne_bin(filename)
+    segmented_points = ground_segmentation(data=origin_points)
+    point_cloud_pynt = PyntCloud.from_file(filename)
+    point_cloud_o3d = point_cloud_pynt.to_instance("open3d", mesh=False)
+    point_cloud_o3d.points = o3d.utility.Vector3dVector(segmented_points)
+    # 显示滤波后的点云
+    o3d.visualization.draw_geometries([point_cloud_o3d])
+
+
+    #print(np.shape(origin_points))
+    #is_inliner_test()
+    #test=random.sample(range(100),5)
+    #print(test)
+
+
