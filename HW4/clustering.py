@@ -14,6 +14,13 @@ import open3d as o3d
 import random
 from pyntcloud import PyntCloud
 from numpy.linalg import svd
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+
+def check_colinearity(data):
+    skew1 = (data[0][1]-data[1][1])/(data[0][0]-data[1][0])
+    skew2 = (data[2][1]-data[0][1])/(data[2][0]-data[0][0])
+    return abs(skew1-skew2)>0.001
 
 def add_one_column(raw_data):
     data_size = np.shape(raw_data)[0]
@@ -40,25 +47,27 @@ def is_inliner_test():
         print("is_inliner_test fails")
      
 
-def run_ransac(data,threshold=0.2,max_iterations=100,subset_size=1000,goal_inliner_ratio=0.9):
+def run_ransac(data,threshold=1,max_iterations=400,subset_size=20000):
     #init value
     max_inliner=0
     best_param = None
     #for loop 
+    
     data_size= np.shape(data)[0]
     for i in range(max_iterations):
         sample_idx=random.sample(range(data_size),subset_size)
         sub_data= data[sample_idx]
-        param= line_param_estiamte(sub_data[:4])
+        idxs = sub_data[:3]
+        #print("idxs",idxs)
+        while(check_colinearity(idxs)==False):
+            idxs = [np.random.randint(0,sub_data.shape[0]) for _ in range(3)]
+        param= line_param_estiamte(idxs)
         inliner_idx=is_inliner(param,threshold,sub_data)
         inliner_size=np.shape(sub_data[inliner_idx])[0]
         if inliner_size>max_inliner:
             best_param = param
             max_inliner= inliner_size
-            print("new max ",max_inliner)
-        elif(0):
-            #other conditon to stop
-            pass
+            print("updated max number",max_inliner)
         
     return best_param
         
@@ -93,11 +102,11 @@ def read_velodyne_bin(path):
 #     data: 一帧完整点云
 # 输出：
 #     segmengted_cloud: 删除地面点之后的点云
-def ground_segmentation(data):
+def ground_segmentation(data,threshold=0.6):
     # 作业1
     # 屏蔽开始
-    param = run_ransac(data)
-    inline_indices = is_inliner(param,0.2,data)
+    param = run_ransac(data,threshold)
+    inline_indices = is_inliner(param,threshold,data)
     filtered_data =(data[inline_indices==False])
     print("filtered size ",filtered_data.shape)
     return filtered_data
@@ -117,11 +126,16 @@ def ground_segmentation(data):
 def clustering(data):
     # 作业2
     # 屏蔽开始
+    X = StandardScaler().fit_transform(data)
+    db = DBSCAN(eps=0.4, min_samples=8).fit(X)
+    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+    core_samples_mask[db.core_sample_indices_] = True
+    labels = db.labels_  
 
 
     # 屏蔽结束
 
-    return clusters_index
+    return labels
 
 # 功能：显示聚类点云，每个聚类一种颜色
 # 输入：
@@ -140,26 +154,24 @@ def plot_clusters(data, cluster_index):
 def main():
     root_dir = 'data/' # 数据集路径
     cat = os.listdir(root_dir)
-    cat = cat[1:]
+    print("cat",cat)
+    #cat = cat[1:]
     iteration_num = len(cat)
-    iteration_num=1
 
     for i in range(iteration_num):
         filename = os.path.join(root_dir, cat[i])
         print('clustering pointcloud file:', filename)
         #filename="/home/chahe/project/PointCloud3D/PointCloudProcessing/HW4/000000.bin"
-        #point_cloud_pynt = PyntCloud.from_file(filename)
-        #point_cloud_o3d = point_cloud_pynt.to_instance("open3d", mesh=False)
-        #o3d.visualization.draw_geometries([point_cloud_o3d]) # 显示原始点云
+        point_cloud_pynt = PyntCloud.from_file(filename)
+        point_cloud_o3d = point_cloud_pynt.to_instance("open3d", mesh=False)
+        o3d.visualization.draw_geometries([point_cloud_o3d]) # 显示原始点云
         origin_points = read_velodyne_bin(filename)
         segmented_points = ground_segmentation(data=origin_points)
         cluster_index = clustering(segmented_points)
 
         plot_clusters(segmented_points, cluster_index)
-
-if __name__ == '__main__':
-    #main()
-    filename="/home/chahe/project/PointCloud3D/PointCloudProcessing/HW4/000000.bin"
+def Ransac_test():
+    filename="data/000000.bin"
             #point_cloud_pynt = PyntCloud.from_file(filename)
     origin_points = read_velodyne_bin(filename)
     segmented_points = ground_segmentation(data=origin_points)
@@ -168,11 +180,18 @@ if __name__ == '__main__':
     point_cloud_o3d.points = o3d.utility.Vector3dVector(segmented_points)
     # 显示滤波后的点云
     o3d.visualization.draw_geometries([point_cloud_o3d])
+    #print(check_colinearity(([1,1],[2,2],[3,3])))
 
 
     #print(np.shape(origin_points))
     #is_inliner_test()
     #test=random.sample(range(100),5)
     #print(test)
+
+    
+
+if __name__ == '__main__':
+    #main()
+    Ransac_test()
 
 
