@@ -40,22 +40,22 @@ class PointNet(nn.Module):
         well as arbitrary operators on Tensors.
     """
     batchsize = x.size()[0]
-    #x = F.relu(self.bn1(self.conv1(x)))
-    #x = F.relu(self.bn2(self.conv2(x)))
-    #x = F.relu(self.bn3(self.conv3(x))) 
-    x = F.relu((self.conv1(x)))
-    x = F.relu((self.conv2(x)))
-    x = F.relu((self.conv3(x)))
+    x = F.relu(self.bn1(self.conv1(x)))
+    x = F.relu(self.bn2(self.conv2(x)))
+    x = F.relu(self.bn3(self.conv3(x))) 
+    #x = F.relu((self.conv1(x)))
+    #x = F.relu((self.conv2(x)))
+    #x = F.relu((self.conv3(x)))
     # 至此唯独上升到1024，开始寻找全局特征 ， 3,1024,10000
     x = torch.max(x, 2, keepdim=True)[0] #3，1024,1
     x = x.view(-1, 1024) ##3，1024
-    #x = F.relu(self.bn4(self.fc1(x)))
-    #x = F.relu(self.bn5(self.fc2(x)))
-    x = F.relu((self.fc1(x)))
-    x = F.relu((self.fc2(x)))
+    x = F.relu(self.bn4(self.fc1(x)))
+    x = F.relu(self.bn5(self.fc2(x)))
+    #x = F.relu((self.fc1(x)))
+    #x = F.relu(self.dropout(self.fc2(x)))
     x = self.fc3(x)
 
-    x = F.softmax(x, dim=1)
+    #x = F.softmax(x, dim=1)
      
     return x
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
   net = PointNet()
   sim_data = Variable(torch.rand(3, 3, 10000))
   out = net(sim_data)
-  print('gfn', out.size())
+  print('gfn', out.size(),out)
   
 
  
