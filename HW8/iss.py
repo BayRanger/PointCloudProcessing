@@ -32,7 +32,7 @@ def getWeightedCov(pcd_tree,data,this_idx,neigh_idxs,sub_radius):
 """
 The implementation of iss key point selection algorithm
 """
-def getIssKeyPointIdx(filename, thre1=0.6,thre2=0.6,r1=2,r2=2,iss_count=200):
+def getIssKeyPointIdx(filename, thre1=0.6,thre2=0.6,r1=2,r2=2,iss_count=500):
     point_cloud_pynt = PyntCloud.from_file(filename)
     point_cloud_o3d = point_cloud_pynt.to_instance("open3d", mesh=False)
     points = point_cloud_pynt.points
@@ -80,7 +80,7 @@ def getIssKeyPointIdx(filename, thre1=0.6,thre2=0.6,r1=2,r2=2,iss_count=200):
 
 if __name__ == "__main__":
     #load data
-    cat_index = 29# 物体编号，范围是0-39，即对应数据集中40个物体/home/chahe/Documents/shenlan_pointcloud/ModelNet40/airplane
+    cat_index = 16# 物体编号，范围是0-39，即对应数据集中40个物体/home/chahe/Documents/shenlan_pointcloud/ModelNet40/airplane
     root_dir = '/home/chahe/project/PointCloud3D/dataset/ModelNet40' # 数据集路径
     cat = os.listdir(root_dir)
     filename = os.path.join(root_dir, cat[cat_index],'train', cat[cat_index]+'_0001.off') # 默认使用第一个点云
@@ -96,5 +96,6 @@ if __name__ == "__main__":
     iss_idxs = getIssKeyPointIdx(filename)
  
     iss_points = points[iss_idxs]
+    print((iss_idxs[353]),iss_idxs[350],iss_idxs[343])
     point_cloud_o3d.points =o3d.utility.Vector3dVector(iss_points)
-    o3d.visualization.draw_geometries([point_cloud_o3d])
+    o3d.visualization.draw_geometries_with_editing([point_cloud_o3d])
