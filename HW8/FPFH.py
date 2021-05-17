@@ -11,56 +11,65 @@ import matplotlib.pyplot as plt
 # %%
 """[summary]
 """
-def FPFH(data,point_label,tree,radius,bin):
+def FPFH(data,point_idx,tree,radius,bin):
     nei_hist,count =0,0.
-    #nei_labels = tree.query_radius(data_with_normal[point_label][0:3].reshape(1,-1),radius)[0]
-    _,nei_labels,_ = tree.search_radius_vector_3d(data_with_normal[point_label][0:3].reshape(1,-1),radius)
-    nei_labels = np.asarray(list(list(set(nei_labels) - set([point_label]))))  #在邻居点中去除关键点
-    data_with_norm = PointWithNorm(data,tree,radius)
-    histograms = SPFH(data_with_normal,point_label,tree,radius,bin).astype(np.double)
+    this_data = np.array(data[point_idx][0:3])
+    #nei_labels = tree.query_radius(data_with_normal[point_idx][0:3].reshape(1,-1),radius)[0]
+    _,nei_labels,_ = tree.search_radius_vector_3d(this_data,radius)
+    while(np.shape(nei_labels)[0]<3):
+        radius = radius*2
+        _,nei_labels,_ = tree.search_radius_vector_3d(this_data,radius)
+    nei_labels = np.asarray(list(list(set(nei_labels) - set([point_idx]))))  #在邻居点中去除关键点
+    data_with_normal = PointWithNorm(data,tree,radius)
+    histograms = SPFH(data_with_normal,point_idx,tree,radius,bin).astype(np.double)
+    histogram_tmp =np.zeros_like(histograms)
     for neighbor_label in nei_labels:
         count+=1
-    
+        weight = np.linalg.norm(np.array(data_with_normal[point_idx][0:3])-np.array(data_with_normal[neighbor_label][0:3]),2)
+        histogram_tmp+=1./weight*SPFH(data_with_normal,neighbor_label,tree,radius,bin).astype(np.double)
+    histograms = histogram_tmp/count
+    return histograms
 
 """[Simplified Point Feature Histogram]
 Compute triplet between query point and its neighbors within r
 Ouput is 3 histograms(each has bin bins ) by binning triplet
 """
-def SPFH(data_with_normal, point_label, tree, radius, bin):
+def SPFH(data_with_normal, point_idx, tree, radius, bin):
     alpha,phi,theta = [],[],[] 
-    point = data_with_normal[point_label]
-    #nei_labels = tree.query_radius(data_with_normal[point_label][0:3].reshape(1,-1),radius)[0]
-    print("HHH",np.array(data_with_normal[point_label][0:3]) )
-    this_data = np.array(data_with_normal[point_label][0:3])
-    #data_with_normal[point_label][0:3].reshape(1,-1)
+    point = data_with_normal[point_idx]
+    #nei_labels = tree.query_radius(data_with_normal[point_idx][0:3].reshape(1,-1),radius)[0]
+    #print("HHH",np.array(data_with_normal[point_idx][0:3]) )
+    this_data = np.array(data_with_normal[point_idx][0:3])
+    #data_with_normal[point_idx][0:3].reshape(1,-1)
     _,nei_labels,_ = tree.search_radius_vector_3d(this_data,radius)
     
-    nei_labels = np.asarray(list(list(set(nei_labels) - set([point_label]))))  #在邻居点中去除关键点
+    nei_labels = np.asarray(list(list(set(nei_labels) - set([point_idx]))))  #在邻居点中去除关键点
     while(np.shape(nei_labels)[0]<3):
         radius = radius*2
         _,nei_labels,_ = tree.search_radius_vector_3d(this_data,radius)
-        nei_labels = np.asarray(list(list(set(nei_labels) - set([point_label]))))  #在邻居点中去除关键点
+        nei_labels = np.asarray(list(list(set(nei_labels) - set([point_idx]))))  #在邻居点中去除关键点
     
     local_points = data_with_normal[nei_labels] #得到所有邻居点
-    p1 = data_with_normal[point_label][0:3].reshape(1,-1)
-    u = data_with_normal[point_label][3:].reshape(1,-1)
+    p1 = data_with_normal[point_idx][0:3].reshape(1,-1)
+    u = data_with_normal[point_idx][3:].reshape(1,-1)
+    #print("u ",u)
     for neighbor in nei_labels:
         p2 = data_with_normal[neighbor][0:3].reshape(1,-1)
         if (np.linalg.norm(p2-p1,2)<0.001):
             continue
         n2 = data_with_normal[neighbor][3:].reshape(1,-1)
-        print("neighbor idx ",neighbor,"pt idx ",point_label)
-        print("p1:",p1," p2:",p2)
+        #print("neighbor idx ",neighbor,"pt idx ",point_idx)
+        #print("p1:",p1," p2:",p2)
         v = np.cross(u,(p2-p1)/np.linalg.norm(p2-p1,2))
-        v= v/np.linalg.norm(v)
+        #v= v/np.linalg.norm(v,2)
         w = np.cross(u,v)
-        w=w/np.linalg.norm(w)
-        this_alpha = np.dot(v,n2.T)/(np.linalg.norm(n2,2))
+        w=w/np.linalg.norm(w,2)
+        this_alpha = np.dot(v,n2.T)#/(np.linalg.norm(n2,2))
         this_phi = np.dot((p2-p1),u.T)/np.linalg.norm(p2-p1,2)
         this_theta = np.arctan2(np.dot(w,n2.T),np.dot(u,n2.T))
-        alpha.append(float(this_alpha))
-        phi.append(float(this_phi))
-        theta.append(float(this_theta))   
+        alpha.append(np.double(this_alpha))
+        phi.append(np.double(this_phi))
+        theta.append(np.double(this_theta))   
         #test the 3 in radians 
         
     #voting
@@ -87,15 +96,15 @@ if __name__ == "__main__":
     # predetermine the key points
     kp_idx1 = 275
     kp_idx2 = 248
-    kp_comp = 261
+    kp_comp = 200
     
     
     
     # %%
     data_with_norm = PointWithNorm(points,pcd_tree,0.5)
-    histogram1 = SPFH(data_with_norm,kp_idx1,pcd_tree,2,11)
-    histogram2 = SPFH(data_with_norm,kp_idx2,pcd_tree,2,11)
-    histogram3 = SPFH(data_with_norm,kp_comp,pcd_tree,2,11)
+    histogram1 = FPFH(points,kp_idx1,pcd_tree,0.5,11)
+    histogram2 = FPFH(points,kp_idx2,pcd_tree,0.5,11)
+    histogram3 = FPFH(points,kp_comp,pcd_tree,0.5,11)
 
     print(histogram1)
     print(histogram2)
@@ -104,7 +113,7 @@ if __name__ == "__main__":
     plt.plot(histogram2, 'o-', label='similar feature2')
     plt.plot(histogram3, 'o-', label='different feature')
     plt.legend()
-    plt.title('Histogram of feature')
+    plt.title('Histogram of FPFH')
     plt.show()
     #iss_points = points[iss_idxs]
     #point_cloud_o3d.points =o3d.utility.Vector3dVector(iss_points)
