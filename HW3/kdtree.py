@@ -2,7 +2,7 @@ import random
 import math
 import numpy as np
 
-from result_set import KNNResultSet, RadiusNNResultSet
+from result_set import RadiusNNResultSet
 
 
 class Node:
@@ -163,28 +163,7 @@ def kdtree_construction(db_np, leaf_size,feature_=None,feature2_=None):
     return root
 
 
-def kdtree_knn_search(root: Node, db: np.ndarray, result_set: KNNResultSet, query: np.ndarray):
-    if root is None:
-        return False
 
-    if root.is_leaf():
-        # compare the contents of a leaf
-        leaf_points = db[root.point_indices, :]
-        diff = np.linalg.norm(np.expand_dims(query, 0) - leaf_points, axis=1)
-        for i in range(diff.shape[0]):
-            result_set.add_point(diff[i], root.point_indices[i])
-        return False
-
-    if query[root.axis] <= root.value:
-        kdtree_knn_search(root.left, db, result_set, query)
-        if math.fabs(query[root.axis] - root.value) < result_set.worstDist():
-            kdtree_knn_search(root.right, db, result_set, query)
-    else:
-        kdtree_knn_search(root.right, db, result_set, query)
-        if math.fabs(query[root.axis] - root.value) < result_set.worstDist():
-            kdtree_knn_search(root.left, db, result_set, query)
-
-    return False
 
 
 def kdtree_radius_search(root: Node, db: np.ndarray, result_set: RadiusNNResultSet, query: np.ndarray):
@@ -201,11 +180,11 @@ def kdtree_radius_search(root: Node, db: np.ndarray, result_set: RadiusNNResultS
 
     if query[root.axis] <= root.value:
         kdtree_radius_search(root.left, db, result_set, query)
-        if math.fabs(query[root.axis] - root.value) < result_set.worstDist():
+        if math.fabs(query[root.axis] - root.value) < float(result_set.worstDist()):
             kdtree_radius_search(root.right, db, result_set, query)
     else:
         kdtree_radius_search(root.right, db, result_set, query)
-        if math.fabs(query[root.axis] - root.value) < result_set.worstDist():
+        if math.fabs(query[root.axis] - root.value) < float(result_set.worstDist()):
             kdtree_radius_search(root.left, db, result_set, query)
 
     return False
@@ -241,11 +220,11 @@ def main():
     # print(nn_dist[0:k])
     #
     #
-    # print("Radius search:")
-    # query = np.asarray([0, 0, 0])
-    # result_set = RadiusNNResultSet(radius = 0.5)
-    # radius_search(root, db_np, result_set, query)
-    # print(result_set)
+    print("Radius search:")
+    query = np.asarray([0, 0, 0])
+    result_set = RadiusNNResultSet(radius = 0.5)
+    kdtree_radius_search(root, db_np, result_set, query)
+    print(result_set)
 
 
 if __name__ == '__main__':

@@ -20,7 +20,7 @@ Assignments --clustering
 
 在采用fully connected的模式下，如果使用nomalized spectral clustering，效果更差，unnomalized 反而效果更好。
 
-在对distance map计算的过程中，如果采用倒数，需要解决分母为0的问题，所以用guassion distribution可能是一种更好的解决方式，或者用max（data）-element也可以得到可行的结果。 
+在对distance map计算的过程中，如果采用倒数，需要解决分母为0的问题，所以用guassion distribution可能是一种更好的解决方式，或者用max（data）-element也可以得到可行的结果。
 
 spectral clustering在main函数的小数据中表现正常，但是在测试文件中表现不佳。
 
@@ -28,9 +28,7 @@ spectral clustering在main函数的小数据中表现正常，但是在测试文
 
 下图是采用knn（k=20），gaussion 的sigma=1 对应的表现
 
-
 <img src="ref/Figure_2.png" alt="Terminator" width="100%">
-
 
 下图是fully connected状态下，sigma=0.1的时候，对应表现，其他参数下不佳的结果就不展示了。
 
@@ -43,3 +41,7 @@ spectral clustering在main函数的小数据中表现正常，但是在测试文
 针对KMeans进行了更新，初始化时将data进行了一次sort，然后选择均匀的间隔对index采样作为聚类中心。KMeans的终止条件也修改了，改为连续两次分类结果一致时，才进行终止。
 
 <img src="ref/Figure_3.png" alt="Terminator" width="100%">
+
+**update**
+
+采用上次作业使用的radius search of KdTree，通过调节gauss 的参数，leaf size 以及radius实现了满意的分类效果

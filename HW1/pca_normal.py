@@ -39,15 +39,16 @@ def PCA(data, correlation=False, sort=True):
 
 def main():
         # 指定点云路径
-    cat_index = 5# 物体编号，范围是0-39，即对应数据集中40个物体/home/chahe/Documents/shenlan_pointcloud/ModelNet40/airplane
-    root_dir = '/home/chahe/project/shenlan_pointcloud/ModelNet40' # 数据集路径
+    cat_index = 3# 物体编号，范围是0-39，即对应数据集中40个物体/home/chahe/Documents/shenlan_pointcloud/ModelNet40/airplane
+    root_dir = '/home/chahe/project/PointCloud3D/dataset/ModelNet40' # 数据集路径
     cat = os.listdir(root_dir)
     filename = os.path.join(root_dir, cat[cat_index],'train', cat[cat_index]+'_0001.off') # 默认使用第一个点云
 
     # 加载原始点云
     point_cloud_pynt = PyntCloud.from_file(filename)
     point_cloud_o3d = point_cloud_pynt.to_instance("open3d", mesh=False)
-    #o3d.visualization.draw_geometries([point_cloud_o3d]) # 显示原始点云
+    o3d.visualization.draw_geometries([point_cloud_o3d]) # 显示原始点云
+    return
 
     # 从点云中获取点，只对点进行处理
     points = point_cloud_pynt.points
@@ -72,6 +73,7 @@ def main():
     for i in range(n):
         _,idxs,_ =pcd_tree.search_knn_vector_3d(points[i],16)
         points_tmp =points[idxs]
+        print(i,", ",points)
         w, v = PCA(points_tmp)
         v_tmp =v[2] 
         normals[i,:]=v[2]
