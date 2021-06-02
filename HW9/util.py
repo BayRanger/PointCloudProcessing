@@ -26,7 +26,7 @@ def getOriginPcd(filename):
     point_cloud_o3d = point_cloud_pynt.to_instance("open3d", mesh=False)
     return point_cloud_o3d
 
-def getCuttedPcd(filename):
+def parse_bin_to_pcd(filename):
     """Extract pointcloud information from the raw .bin file
     and delete the norm information
 
@@ -46,10 +46,10 @@ def getCuttedPcd(filename):
     #data_np =  np.asarray(point_cloud_o3d.points)
     print(np.shape(data_np))
     all_data = (np.reshape(data_np, (int(data_np.shape[0]/6), 6)))
-    pcl_data = (all_data[:,:3])
-    print(np.shape(pcl_data))
-    point_cloud_o3d.points =  o3d.utility.Vector3dVector(pcl_data)
-    #point_cloud_o3d.normals =  o3d.utility.Vector3dVector((all_data[:,3:]))
+    #pcl_data = (all_data[:,:3])
+    #print(np.shape(pcl_data))
+    point_cloud_o3d.points =  o3d.utility.Vector3dVector(all_data[:,:3])
+    point_cloud_o3d.normals =  o3d.utility.Vector3dVector((all_data[:,3:]))
 
     return point_cloud_o3d
 
@@ -101,5 +101,7 @@ if __name__ =='__main__':
     filename1 = "/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/"+"0.bin"
     result = getCuttedPcd(filename1)
     VisualizePcd(result)
-    
+    filename2 = "/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/"+"1.bin"
+    result2 = getCuttedPcd(filename2)
+    VisualizePcd(result2)   
 # %%
