@@ -111,44 +111,33 @@ def Rt2Homology(R,t):
     t = t.reshape((3))
     H[:3,3] = t
     return H
-# %%
-
-def find_accociations(src_pts,R_init,t_init,threshold,tgttree):
-    """[summary]
-
-    Parameters
-    ----------
-    src_pts : numpy.array
-        The original data
-    R_init : 3*3 numpy.array
-        Previous Rotation matrix
-    t_init : 3*1 numpy.array
-        Previous translation vector
-    threshold : float
-        Decide if the pair is too far away
-    tgttree : Kdtree
-        A tree stores all the data information
-
-    Returns
-    -------
-    [type]
-        [description]
-    """
-    R_new = None
-    t_new = None
-    res =0
-    
     
     
     return R_new,t_new, res
+
+def Rt2string(idx1,idx2,R,t):
+    x, y, z, w =Rotation.from_matrix(R).as_quat()
+    res="{},{},{},{},{},{},{},{},{}".format(idx1,idx2,t[0][0],t[1][0],t[2][0],w,x,y,z)
+    return res
+    
+def stirng2File(idx1,idx2,R,t):
+    out_file = open("/home/chahe/project/PointCloud3D/dataset/registration_dataset/reg_result.txt", "w")
+    out_file.write(Rt2string(idx1,idx2,R,t))
+    out_file.close()
+        
+    
+
+    
 
         
 # %%
 if __name__ == "__main__":
     
     #load data
-    filename1 = "/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/"+"0.bin"
-    filename2 = "/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/"+"456.bin"
+    idx1="0"
+    idx2="456"
+    filename1 = ("/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/{}.bin").format(idx1)
+    filename2 = "/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/"+idx2+".bin"
     source_pcd = parse_bin_to_pcd(filename1)
     target_pcd = parse_bin_to_pcd(filename2)
     src_all_data = np.asarray(source_pcd.points).T
@@ -205,6 +194,8 @@ if __name__ == "__main__":
             min_res = diff
     print("best init R ",init_R)
     print("best init t ",init_t)
+    stirng2File(idx1,idx2,init_R,init_t)
+
  
  
 
@@ -256,7 +247,7 @@ if __name__ == "__main__":
         final_q =Rotation.from_matrix(R_update).as_quat()
        # prev_cost= 1.0/N*np.linalg.norm(R_prev@matched_src_data.T+t_prev.reshape((3,1)) - matched_tgt_data.T)
         cost = 1.0/N*np.linalg.norm(new_R@matched_src_data.T+new_t - matched_tgt_data.T)
-        print("final q ",final_q,"  final t",new_t)
+        #print("final q ",final_q,"  final t",new_t)
         
         
         return R_update,t_update, cost 
@@ -268,7 +259,9 @@ if __name__ == "__main__":
         init_R = R_
         init_t = t_
         print("after #",i, " udpate, cost is ",cost_)
-        
+    
+ 
+#stirng2File(idx1,idx2,R_,t_)
     #def find_accociations(src_all_data,tgt_all_data,R_prev,t_init,threshold,tgttree):
     
 
