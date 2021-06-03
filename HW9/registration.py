@@ -2,7 +2,7 @@
 
 
 # %%
- 
+from scipy.spatial.transform import Rotation  
 from util import * 
 # %% 
     
@@ -104,6 +104,14 @@ def getMatchesFromFeature(src_features,tgt_features):
                 break
     return matchings
 
+# %%
+def Rt2Homology(R,t):
+    H = np.diag([1.0,1.0,1.0,1.0])
+    H[:3,:3] = R
+    t = t.reshape((3))
+    H[:3,3] = t
+    return H
+# %%
 
 def find_accociations(src_pts,R_init,t_init,threshold,tgttree):
     """[summary]
@@ -172,8 +180,8 @@ if __name__ == "__main__":
         B_in_order[i]=target_data[tgt_idx]       
     
 # %%
-    best_R=None
-    best_t=None
+    init_R=None
+    init_t=None
     min_res= 100000
     max_iter=4000
     for i in range(max_iter):
@@ -192,31 +200,80 @@ if __name__ == "__main__":
         diff = np.linalg.norm(new_A - B_in_order)
 
         if (diff<min_res):
-            best_R=R
-            best_t=t
+            init_R=R
+            init_t=t
             min_res = diff
-    print("best init R ",best_R)
-    print("best init t ",best_t)
-    # Observation, the t is always not correct after coarse optimization
-            
+    print("best init R ",init_R)
+    print("best init t ",init_t)
+ 
  
 
     # NOW, we have the best R.t for the initialization  matrix
     # Do the icp
-    
-    # build a tree of ICP
-    #diaginal matrix
-    T_init = np.diag([1,1,1,1])
-    T[:3,:3] = best_R
-    T[:3,3] = best_t
+# %%  
+
+    def find_accociations(src_all_data,tgt_all_data,R_prev,t_prev,threshold,tgttree):
+        """[summary]
+
+        Parameters
+        ----------
+        src_pts : numpy.array
+            The original data
+        R_init : 3*3 numpy.array
+            Previous Rotation matrix
+        t_init : 3*1 numpy.array
+            Previous translation vector
+        threshold : float
+            Decide if the pair is too far away
+        tgttree : Kdtree
+            A tree stores all the data information
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        N= np.shape(src_all_data)[1]
+        # move the data based on the initial information
+        transformed_src_data = R_prev@src_all_data+ t_prev.reshape((3,1))
+        # Try to match every point in the  stc
+        #match_pairs=[]
+        matched_src_data=[]
+        matched_tgt_data=[]
+        for i in range(N):
+            to_match_pt = transformed_src_data[:,[i]]
+            _,match_idx,dists =tgt_data_tree.search_knn_vector_xd(to_match_pt,1)
+            #if (np.linalg,norm(to_match_pt - tgt)
+            if dists[0]<threshold:
+                #match_pairs.append([i,match_idx[0]])
+                matched_src_data.append(transformed_src_data[:,i])
+                matched_tgt_data.append(tgt_all_data[:,match_idx[0]])
+        matched_src_data = np.asarray(matched_src_data)
+        matched_tgt_data = np.asarray(matched_tgt_data)
+        new_R,new_t = procrustes_transformation(matched_src_data,matched_tgt_data)
+        R_update = new_R@R_prev
+        t_update = np.array(new_t).reshape((3,1))+ np.array(t_prev).reshape((3,1))
+        final_q =Rotation.from_matrix(R_update).as_quat()
+       # prev_cost= 1.0/N*np.linalg.norm(R_prev@matched_src_data.T+t_prev.reshape((3,1)) - matched_tgt_data.T)
+        cost = 1.0/N*np.linalg.norm(new_R@matched_src_data.T+new_t - matched_tgt_data.T)
+        print("final q ",final_q,"  final t",new_t)
+        
+        
+        return R_update,t_update, cost 
+
     tgt_data_tree = o3d.geometry.KDTreeFlann(tgt_all_data)
-    N= np.shape(src_all_data)[1]
-    tranformed_src_data = best_R@src_all_data 
-    # Try to match every point in the  stc
+
+    for i in range(20):
+        R_,t_,cost_ =find_accociations(src_all_data,tgt_all_data,init_R,init_t,1,tgt_data_tree)
+        init_R = R_
+        init_t = t_
+        print("after #",i, " udpate, cost is ",cost_)
+        
+    #def find_accociations(src_all_data,tgt_all_data,R_prev,t_init,threshold,tgttree):
+    
 
 
-
-
+# test the performance
     
  
 
