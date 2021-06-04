@@ -91,6 +91,28 @@ def extract_iss_pcd(pcd_src):
 The implementation of iss key point selection algorithm
 """
 def getIssKeyPointIdxFromPcd(point_cloud_pynt, thre1=0.6,thre2=0.6,r1=2,r2=2,iss_count=500):
+    """[summary]
+
+    Parameters
+    ----------
+    point_cloud_pynt : [type]
+        [description]
+    thre1 : float, optional
+        [description], by default 0.6
+    thre2 : float, optional
+        [description], by default 0.6
+    r1 : int, optional
+        [description], by default 2
+    r2 : int, optional
+        [description], by default 2
+    iss_count : int, optional
+        [description], by default 500
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
     #point_cloud_pynt = PyntCloud.from_file(filename)
     #point_cloud_o3d = point_cloud_pynt.to_instance("open3d", mesh=False)
     points = point_cloud_pynt.points

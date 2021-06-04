@@ -59,6 +59,27 @@ def downsample_pcd(pcd,voxel_size):
 def visualize_pcd(pcd):
     o3d.visualization.draw_geometries([pcd])
     
+def fpfh_extractor(pcd,voxel_size):
+    """extract FPFH features 
+
+    Parameters
+    ----------
+    pcd : [type]
+        [description]
+    voxel_size : [type]
+        [description]
+
+    Returns
+    -------
+    [type] np.array
+        [description] [33,N]
+    """
+    radius_feature = voxel_size * 5
+    pcd_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+        src_iss_pcd,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+    return pcd_fpfh
+    
     # %%
 if __name__ == "__main__":
     
@@ -93,5 +114,13 @@ if __name__ == "__main__":
     src_iss_pcd = extract_iss_pcd(src_down)
     tgt_iss_pcd = extract_iss_pcd(tgt_down)
     draw_registration_result(src_iss_pcd,tgt_iss_pcd)
+    
+# FPFH descriptor
+    src_iss_fpfh = fpfh_extractor(src_iss_pcd,voxel_size)
+    tgt_iss_fpfh = fpfh_extractor(tgt_iss_pcd,voxel_size)
+    print( np.shape(src_iss_fpfh.data))
+
+#
+
   
  
