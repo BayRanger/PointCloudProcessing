@@ -7,7 +7,7 @@ from pyntcloud import PyntCloud
 import operator
 import matplotlib.pyplot as plt
 import copy
-
+from iss import *
 
 def parse_bin_to_pcd(filename):
     """Extract pointcloud information from the raw .bin file
@@ -47,6 +47,18 @@ def draw_registration_result(source, target, transformation=np.diag([1,1,1,1])):
                                       lookat=[1.9892, 2.0208, 1.8945],
                                       up=[-0.2779, -0.9482, 0.1556])
     
+def downsample_pcd(pcd,voxel_size):
+    pcd_down = pcd.voxel_down_sample(voxel_size)
+    radius_normal = voxel_size * 2
+    pcd_down.estimate_normals(
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+    return pcd_down
+    
+
+    
+def visualize_pcd(pcd):
+    o3d.visualization.draw_geometries([pcd])
+    
     # %%
 if __name__ == "__main__":
     
@@ -58,11 +70,28 @@ if __name__ == "__main__":
     filename2 = "/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/"+idx2+".bin"
     src_pcd = parse_bin_to_pcd(filename1)
     tgt_pcd = parse_bin_to_pcd(filename2)
+    #draw_registration_result(src_pcd,tgt_pcd)
+    #point_cloud_o3d = src_pcd.to_instance("open3d", mesh=False)
 
-    #visualize_pcd(source_pcd)
-    #could not visualize now!
+    voxel_size =1
+    src_down = downsample_pcd(src_pcd,1)
+    tgt_down = downsample_pcd(tgt_pcd,1)
+    #draw_registration_result(src_down,tgt_down)
+
 # %% step 2 denoise and downsample
-    voxel_size =2
-    pcd_down = src_pcd.voxel_down_sample(voxel_size)
-    draw_registration_result(src_pcd,tgt_pcd)
+    
 # %%
+# denoise the data
+    # src_denoise_pcd, _ = src_pcd.remove_radius_outlier(nb_points=4, radius=0.5)
+    # tgt_denoise_pcd, _ = tgt_pcd.remove_radius_outlier(nb_points=4, radius=0.5)
+    # #draw_registration_result(src_denoise_pcd,tgt_denoise_pcd)
+
+
+# extract feature cloud
+    #iss_idxs =getIssKeyPointIdxFromPcd(src_pcd)
+    #print(iss_idxs)
+    src_iss_pcd = extract_iss_pcd(src_down)
+    tgt_iss_pcd = extract_iss_pcd(tgt_down)
+    draw_registration_result(src_iss_pcd,tgt_iss_pcd)
+  
+ 
