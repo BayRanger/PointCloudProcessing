@@ -80,8 +80,16 @@ def fpfh_extractor(pcd,voxel_size):
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
     return pcd_fpfh
 
-# def get_match_candidate(src_fpfh, tgt_fpfh):
-#     #store the 
+def get_match_candidate(src_fpfh_data, tgt_fpfh_data):
+    #store the 
+    tgt_tree = o3d.geometry.KDTreeFlann(tgt_fpfh_data)
+    _,N = np.shape(tgt_fpfh_data)
+    matches=[]
+    for i in range(N):
+        _,tgt_nn_idxs,_ = tgt_tree.search_knn_vector_xd(src_fpfh_data[:,i],1)
+        matches.append([i,tgt_nn_idxs[0]])
+    matches_array = np.asarray(matches)
+    return matches_array
     
     # %%
 if __name__ == "__main__":
@@ -128,14 +136,8 @@ if __name__ == "__main__":
     tgt_fpfh_data = tgt_iss_fpfh.data
 # %%
     print("tgt_fpfh shape",np.shape(tgt_fpfh_data))
-    tgt_tree = o3d.geometry.KDTreeFlann(tgt_fpfh_data)
-    _,N = np.shape(tgt_fpfh_data)
-    matches=[]
-    for i in range(N):
-        _,tgt_nn_idxs,_ = tgt_tree.search_knn_vector_xd(src_fpfh_data[:,i],1)
-        matches.append([i,tgt_nn_idxs[0]])
-    matches_array = np.asarray(matches)
-    print(matches_array)
+    matches = get_match_candidate(src_fpfh_data, tgt_fpfh_data)
+    print(matches)
         
         
     
