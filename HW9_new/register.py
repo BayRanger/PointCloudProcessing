@@ -12,6 +12,8 @@ from tools import IO
 from tools import ISS
 from tools import FPFH
 from tools import RANSAC
+from scipy.spatial.distance import pdist
+import random
 
 def parse_bin_to_pcd(filename):
     """Extract pointcloud information from the raw .bin file
@@ -84,17 +86,68 @@ def fpfh_extractor(pcd,voxel_size):
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
     return pcd_fpfh
 
-def get_match_candidate(src_fpfh_data, tgt_fpfh_data):
+def get_match_candidate(src_fpfh_data, tgt_fpfh_data,max_dist=20):
     #store the 
     tgt_tree = o3d.geometry.KDTreeFlann(tgt_fpfh_data)
+    src_tree = o3d.geometry.KDTreeFlann(src_fpfh_data)
     _,N = np.shape(tgt_fpfh_data)
+    _,N_src = np.shape(src_fpfh_data)
+    src_match_dict={}
+    tgt_match_dict={}
     matches=[]
     for i in range(N):
         _,tgt_nn_idxs,_ = tgt_tree.search_knn_vector_xd(src_fpfh_data[:,i],1)
-        matches.append([i,tgt_nn_idxs[0]])
-    matches_array = np.asarray(matches)
-    return matches_array
+        src_match_dict[i]=tgt_nn_idxs[0]
+    for i in range(N_src):
+        _,src_nn_idxs,_ = src_tree.search_knn_vector_xd(tgt_fpfh_data[:,i],1)
+        tgt_match_dict[i]=src_nn_idxs[0]
+        
+    for key in src_match_dict:
+        idx = src_match_dict[key]
+        if (tgt_match_dict[idx]==key and np.linalg.norm(src_fpfh_data[:,key]-tgt_fpfh_data[:,idx])<max_dist):
+            matches.append([key,idx])       
+        # for idx in src_match_dict[key]:
+        #     if (key in tgt_match_dict[idx]):
+        #         matches.append([key,idx])
+        
+    return matches
     
+def solve_icp(P, Q):
+    """
+    Solve ICP
+
+    Parameters
+    ----------
+    P: numpy.ndarray
+        source point cloud as N-by-3 numpy.ndarray
+    Q: numpy.ndarray
+        target point cloud as N-by-3 numpy.ndarray
+
+    Returns
+    ----------
+    T: transform matrix as 4-by-4 numpy.ndarray
+        transformation matrix from one-step ICP
+
+    """
+    # compute centers:
+    up = P.mean(axis = 0)
+    uq = Q.mean(axis = 0)
+
+    # move to center:
+    P_centered = P - up
+    Q_centered = Q - uq
+
+    U, s, V = np.linalg.svd(np.dot(Q_centered.T, P_centered), full_matrices=True, compute_uv=True)
+    R = np.dot(U, V)
+    t = uq - np.dot(R, up)
+
+    # format as transform:
+    T = np.zeros((4, 4))
+    T[0:3, 0:3] = R
+    T[0:3, 3] = t
+    T[3, 3] = 1.0
+
+    return T
     # %%
 if __name__ == "__main__":
     
@@ -135,45 +188,45 @@ if __name__ == "__main__":
     tgt_iss_fpfh = fpfh_extractor(tgt_iss_pcd,voxel_size)
     print( np.shape(src_iss_fpfh.data))
 # %%
-#match feaatures 
+#match features 
     src_fpfh_data = src_iss_fpfh.data
     tgt_fpfh_data = tgt_iss_fpfh.data
 # # %%
+    #do a simple match
+    #tgt_iss_fpfh
 
-    radius = 0.5
-    
-    distance_threshold_init = 1.5 * radius
-    distance_threshold_final = 1.0 * radius
-     # RANSAC初始匹配
+    match_candidates = get_match_candidate(src_fpfh_data,tgt_fpfh_data)
+    match_candidates = np.asarray(match_candidates,dtype=np.int)
+    n,_ = np.shape(match_candidates)
+    print(np.shape(match_candidates))
+    # the matches of points in isis are acquired
     src_iss_data =np.asarray(src_iss_pcd.points)
     tgt_iss_data =np.asarray(tgt_iss_pcd.points)
 
-    init_result = RANSAC.ransac_match(
-        src_iss_pcd, tgt_iss_pcd, 
-        src_iss_fpfh.data, tgt_iss_fpfh.data,    
-        ransac_params = RANSAC.RANSACParams(
-            max_workers=5,
-            num_samples=4, 
-            max_correspondence_distance=distance_threshold_init,
-            max_iteration=200000, 
-            max_validation=500,
-            max_refinement=30
-        ),
-        checker_params = RANSAC.CheckerParams(
-            max_correspondence_distance=distance_threshold_init,
-            max_edge_length_ratio=0.9,
-            normal_angle_threshold=None
-        )      
-    )
-    search_tree_target = o3d.geometry.KDTreeFlann(tgt_pcd)
+    print(match_candidates[:,0])
+    src_matcher =src_iss_data[match_candidates[:,0]]
+    tgt_matcher =tgt_iss_data[match_candidates[:,1]]
 
-    final_result = RANSAC.exact_match(
-        src_pcd, tgt_pcd, search_tree_target,
-        init_result.transformation,
-        distance_threshold_final, 60
-    )
-
-    draw_registration_result(src_pcd,tgt_pcd,final_result.transformation)
+# %%
+    d_thre =3
+    max_matcher =0
+    best_T=np.diag([1]*4)
+    # select right matches
+    for i in range(6000):
+        proposal =random.sample(range(0, n), 3)
+        A=src_matcher[proposal]
+        B=tgt_matcher[proposal]
+        T =solve_icp(A,B)    
+        R, t = T[0:3, 0:3], T[0:3, 3]
+        dist = np.linalg.norm(src_iss_data@R.T+t-tgt_iss_data,axis=1)
+        match_num=np.sum(dist<d_thre)
+        if(match_num>max_matcher):
+            best_T = T
+            max_matcher = match_num
+    print("best T is ",best_T,"max matchers are ",max_matcher)
+        
+        
+    draw_registration_result(src_down,tgt_down,best_T)
 
 
  
@@ -183,3 +236,4 @@ if __name__ == "__main__":
 # store the tgt data into the tree
 
  
+# %%
