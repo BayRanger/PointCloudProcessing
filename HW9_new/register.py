@@ -8,6 +8,10 @@ import operator
 import matplotlib.pyplot as plt
 import copy
 from iss import *
+from tools import IO
+from tools import ISS
+from tools import FPFH
+from tools import RANSAC
 
 def parse_bin_to_pcd(filename):
     """Extract pointcloud information from the raw .bin file
@@ -134,11 +138,45 @@ if __name__ == "__main__":
 #match feaatures 
     src_fpfh_data = src_iss_fpfh.data
     tgt_fpfh_data = tgt_iss_fpfh.data
-# %%
-    print("tgt_fpfh shape",np.shape(tgt_fpfh_data))
-    matches = get_match_candidate(src_fpfh_data, tgt_fpfh_data)
-    print(matches)
-        
+# # %%
+
+    radius = 0.5
+    
+    distance_threshold_init = 1.5 * radius
+    distance_threshold_final = 1.0 * radius
+     # RANSAC初始匹配
+    src_iss_data =np.asarray(src_iss_pcd.points)
+    tgt_iss_data =np.asarray(tgt_iss_pcd.points)
+
+    init_result = RANSAC.ransac_match(
+        src_iss_pcd, tgt_iss_pcd, 
+        src_iss_fpfh.data, tgt_iss_fpfh.data,    
+        ransac_params = RANSAC.RANSACParams(
+            max_workers=5,
+            num_samples=4, 
+            max_correspondence_distance=distance_threshold_init,
+            max_iteration=200000, 
+            max_validation=500,
+            max_refinement=30
+        ),
+        checker_params = RANSAC.CheckerParams(
+            max_correspondence_distance=distance_threshold_init,
+            max_edge_length_ratio=0.9,
+            normal_angle_threshold=None
+        )      
+    )
+    search_tree_target = o3d.geometry.KDTreeFlann(tgt_pcd)
+
+    final_result = RANSAC.exact_match(
+        src_pcd, tgt_pcd, search_tree_target,
+        init_result.transformation,
+        distance_threshold_final, 60
+    )
+
+    draw_registration_result(src_pcd,tgt_pcd,final_result.transformation)
+
+
+ 
         
     
 
