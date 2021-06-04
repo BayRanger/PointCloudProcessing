@@ -76,9 +76,12 @@ def fpfh_extractor(pcd,voxel_size):
     """
     radius_feature = voxel_size * 5
     pcd_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
-        src_iss_pcd,
+        pcd,
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
     return pcd_fpfh
+
+# def get_match_candidate(src_fpfh, tgt_fpfh):
+#     #store the 
     
     # %%
 if __name__ == "__main__":
@@ -101,7 +104,7 @@ if __name__ == "__main__":
 
 # %% step 2 denoise and downsample
     
-# %%
+
 # denoise the data
     # src_denoise_pcd, _ = src_pcd.remove_radius_outlier(nb_points=4, radius=0.5)
     # tgt_denoise_pcd, _ = tgt_pcd.remove_radius_outlier(nb_points=4, radius=0.5)
@@ -113,14 +116,30 @@ if __name__ == "__main__":
     #print(iss_idxs)
     src_iss_pcd = extract_iss_pcd(src_down)
     tgt_iss_pcd = extract_iss_pcd(tgt_down)
-    draw_registration_result(src_iss_pcd,tgt_iss_pcd)
+    #draw_registration_result(src_iss_pcd,tgt_iss_pcd)
     
 # FPFH descriptor
     src_iss_fpfh = fpfh_extractor(src_iss_pcd,voxel_size)
     tgt_iss_fpfh = fpfh_extractor(tgt_iss_pcd,voxel_size)
     print( np.shape(src_iss_fpfh.data))
+# %%
+#match feaatures 
+    src_fpfh_data = src_iss_fpfh.data
+    tgt_fpfh_data = tgt_iss_fpfh.data
+# %%
+    print("tgt_fpfh shape",np.shape(tgt_fpfh_data))
+    tgt_tree = o3d.geometry.KDTreeFlann(tgt_fpfh_data)
+    _,N = np.shape(tgt_fpfh_data)
+    matches=[]
+    for i in range(N):
+        _,tgt_nn_idxs,_ = tgt_tree.search_knn_vector_xd(src_fpfh_data[:,i],1)
+        matches.append([i,tgt_nn_idxs[0]])
+    matches_array = np.asarray(matches)
+    print(matches_array)
+        
+        
+    
 
-#
+# store the tgt data into the tree
 
-  
  
