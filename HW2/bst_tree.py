@@ -98,6 +98,7 @@ class KNNResultSet:
         self.count = 0
         self.worst_dist = 1e10
         self.dist_index_list = []
+        #Initialize a list of length [capacity] with huge value
         for i in range(capacity):
             self.dist_index_list.append(DistIndex(self.worst_dist, 0))
 
@@ -105,7 +106,7 @@ class KNNResultSet:
 
     def size(self):
         return self.count
-
+#count the real added value
     def full(self):
         return self.count == self.capacity
 
@@ -116,13 +117,14 @@ class KNNResultSet:
         self.comparison_counter += 1
         if dist > self.worst_dist:
             return
-
+#the count woule increase if the capacity is not full
         if self.count < self.capacity:
             self.count += 1
-
+# i represent the index of the last element
         i = self.count - 1
         while i > 0:
             if self.dist_index_list[i-1].distance > dist:
+                #shift the element if it is smaller
                 self.dist_index_list[i] = copy.deepcopy(self.dist_index_list[i-1])
                 i -= 1
             else:
@@ -180,6 +182,7 @@ root = None
 for i,point in enumerate(data):
     root =insert(root,point,i)
 query_key =6
+print("query key ",query_key)
 result_set =KNNResultSet(capacity=k)
 knn_search(root,result_set,query_key)
 print("kNN search")

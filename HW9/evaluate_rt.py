@@ -117,7 +117,7 @@ def main():
     # You are required to provide your registration results via 'reg_result.txt'
     # In our provided `reg_result.txt`, we provides 3 ground truth registration results as an example.
     # This script provides some functions to read and visualize the registration results.
-    dataset_path = '/ssd/jiaxin/PointCloudModule/registration_dataset'
+    dataset_path = '/home/chahe/project/PointCloud3D/dataset/registration_dataset'
     ground_truth_reg_result_path = os.path.join(dataset_path, 'groundtruths.txt')
     your_reg_result_path = os.path.join(dataset_path, 'reg_result.txt')
 
@@ -126,7 +126,7 @@ def main():
         evaluate_rt(ground_truth_reg_result_path, your_reg_result_path)
 
     # visualize registration result
-    visualize_row_idx = 2
+    visualize_row_idx = 0
     reg_list = read_reg_results(os.path.join(dataset_path, 'reg_result.txt'), splitter=',')
     idx1, idx2, t, rot = reg_result_row_to_array(reg_list[visualize_row_idx])
 

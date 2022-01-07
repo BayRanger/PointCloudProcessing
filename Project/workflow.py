@@ -22,6 +22,10 @@ from pyntcloud import PyntCloud
 import matplotlib.pyplot as plt
 import time
 import progressbar
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
+from multiprocessing import cpu_count
+import time
 
 
 def test():
@@ -296,7 +300,7 @@ def segment_ground_and_objects(point_cloud):
     return segmented_ground, segmented_objects, labels
 
 # acquire the non-maximum suppression
-def filter_by_bouding_box(X, labels, dims):
+def filter_by_bounding_box(X, labels, dims):
     
 
     # filter by bounding box in object frame:
@@ -367,11 +371,113 @@ def add_label(dataset_label, category, label, N, center):
     dataset_label[category]['vy'].append(vy)
     dataset_label[category]['vz'].append(vz)
 
+def process(index):
+    param = read_calib(os.path.join(data_dir, 'calib', f'{index:06d}.txt'))
+
+        # 读取label文件
+    df_label = read_label(os.path.join(data_dir, 'label_2', f'{index:06d}.txt'),param)
+        
+        # 读取对应的点云
+    # point_cloud = read_velodyne_bin(
+    # os.path.join(input_dir, 'velodyne', f'{index:06d}.bin'))
+
+    # # 读取对应的相机矫正文件以及转换矩阵
+    # param = read_calib(
+    # os.path.join(input_dir, 'calib', f'{index:06d}.txt'))
+
+    # # 读取label文件
+    # df_label = read_label(
+    # os.path.join(input_dir, 'label_2', f'{index:06d}.txt'),param)
+    point_cloud = read_velodyne_bin(os.path.join(data_dir, 'velodyne', f'{index:06d}.bin'))
+    #print(f'{index:06d}.txt')
+    #visualize_kitti(point_cloud)
+    
+    segmented_ground, segmented_objects, object_ids = segment_ground_and_objects(point_cloud[:, 0:3])
+    search_tree = o3d.geometry.KDTreeFlann(segmented_objects)
+
+    #visualize_pcd(segmented_objects)
+
+    search_tree = o3d.geometry.KDTreeFlann(segmented_objects)
+    identified = set()
+    for idx, label in df_label.iterrows():
+        #print("idx ",idx," label ",label)
+        # 提取对应的参数
+        center_velo = np.asarray([label['vx'], label['vy'], label['vz']])
+
+        #print(np.linalg.norm(center_velo))
+
+        if np.linalg.norm(center_velo) > max_distance:
+            continue
+        
+        center_cam = np.asarray([label['cx'], label['cy'], label['cz']])
+
+        # dimensions in camera frame:
+        dims = np.asarray([label['length'], label['height'], label['width']])
+        
+
+        [k, idx, _] = search_tree.search_radius_vector_3d(
+            center_velo, 
+            label['radius']
+        )
+
+        if (k > 0):     
+            point_cloud_velo_ = np.asarray(segmented_objects.points)[idx]
+            object_ids_ = object_ids[idx]
+
+
+            point_cloud_obj = transform_from_velo_to_obj(
+                point_cloud_velo_, 
+                param, 
+                center_cam, 
+                label['ry']
+            )
+
+            # add bias along height:
+            point_cloud_obj[:, 1] += label['height']/2
+
+
+            # 进行矩形框滤波，并获取对应的聚类id（在矩形框内点数最多的类别的id）
+            object_id_ = filter_by_bounding_box(point_cloud_obj, object_ids_, dims)
+
+            if object_id_ is None:
+                continue
+                
+            identified.add(object_id_)
+
+            # 获取对应聚类的点云id
+            idx_object = np.asarray(idx)[object_ids_ == object_id_]
+
+
+            # 构建对应的点云dataframe
+            N = len(idx_object)
+            df_point_cloud_with_normal = get_object_pcd_df(segmented_objects, idx_object, N)
+
+            # 获取类别:
+            category = get_object_category(label['type'])
+            # 获取对应点云的中心
+            center = np.asarray(segmented_objects.points)[idx_object].mean(axis = 0)
+            #print("center",label)
+
+            add_label(dataset_label, category, label, N, center)
+            #print("dataset label",dataset_label)
+            dataset_index = len(dataset_label[category]['type'])
+            df_point_cloud_with_normal.to_csv(
+                    os.path.join(output_dir, category, f'{dataset_index:06d}.txt'),
+                    index=False, header=None
+                )
+    for category in ['vehicle', 'pedestrian', 'cyclist', 'misc']:
+        dataset_label[category] = pd.DataFrame.from_dict(
+            dataset_label[category]
+        )
+        dataset_label[category].to_csv(
+            os.path.join(output_dir, f'{category}.txt'),
+            index=False
+    )            
 if __name__ =="__main__":
     data_dir ="/home/chahe/project/PointCloud3D/PointCloudProcessing/HW6/PointRCNN/data/KITTI/object/training" 
     N = len(glob.glob(os.path.join(data_dir,"label_2","*.txt")))
     print("There are ",N," labeling files")
-    output_dir = "output"
+    output_dir = "output_new"
     os.chdir(r"/home/chahe/project/PointCloud3D/PointCloudProcessing/Project")
     cwd = os.getcwd()
     print("current directory is ",cwd)
@@ -381,120 +487,24 @@ if __name__ =="__main__":
     dataset_label = {}
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
-        os.mkdir(output_dir)
-    else:
-        os.mkdir(output_dir)
+    os.mkdir(output_dir)
+ 
     progres = progressbar.ProgressBar()
     for cat in ['vehicle', 'pedestrian', 'cyclist', 'misc']:
         os.mkdir(os.path.join(output_dir,cat))
         dataset_label[cat] = init_label()
     #index=2
-    for index in progres(range(N)):
+    #for index in progres(range(N)):
     
     
+    start = time.time()
+    # for i in range(10):
+    #     write_index(i)
+    with ThreadPoolExecutor(16) as ex:
+        ex.map(process, np.arange(N))
+    end=time.time()
+    print("Time cost: ",end-start)
     
-    
-        param = read_calib(os.path.join(data_dir, 'calib', f'{index:06d}.txt'))
-
-            # 读取label文件
-        df_label = read_label(os.path.join(data_dir, 'label_2', f'{index:06d}.txt'),param)
-            
-            # 读取对应的点云
-        # point_cloud = read_velodyne_bin(
-        # os.path.join(input_dir, 'velodyne', f'{index:06d}.bin'))
-
-        # # 读取对应的相机矫正文件以及转换矩阵
-        # param = read_calib(
-        # os.path.join(input_dir, 'calib', f'{index:06d}.txt'))
-
-        # # 读取label文件
-        # df_label = read_label(
-        # os.path.join(input_dir, 'label_2', f'{index:06d}.txt'),param)
-        point_cloud = read_velodyne_bin(os.path.join(data_dir, 'velodyne', f'{index:06d}.bin'))
-        #print(f'{index:06d}.txt')
-        #visualize_kitti(point_cloud)
-        
-        segmented_ground, segmented_objects, object_ids = segment_ground_and_objects(point_cloud[:, 0:3])
-        search_tree = o3d.geometry.KDTreeFlann(segmented_objects)
-
-        #visualize_pcd(segmented_objects)
-
-        search_tree = o3d.geometry.KDTreeFlann(segmented_objects)
-        identified = set()
-        for idx, label in df_label.iterrows():
-            print("idx ",idx," label ",label)
-            # 提取对应的参数
-            center_velo = np.asarray([label['vx'], label['vy'], label['vz']])
-
-            #print(np.linalg.norm(center_velo))
-
-            if np.linalg.norm(center_velo) > max_distance:
-                continue
-            
-            center_cam = np.asarray([label['cx'], label['cy'], label['cz']])
-
-            # dimensions in camera frame:
-            dims = np.asarray([label['length'], label['height'], label['width']])
-            
-
-            [k, idx, _] = search_tree.search_radius_vector_3d(
-                center_velo, 
-                label['radius']
-            )
-
-            if (k > 0):     
-                point_cloud_velo_ = np.asarray(segmented_objects.points)[idx]
-                object_ids_ = object_ids[idx]
-
-
-                point_cloud_obj = transform_from_velo_to_obj(
-                    point_cloud_velo_, 
-                    param, 
-                    center_cam, 
-                    label['ry']
-                )
-
-                # add bias along height:
-                point_cloud_obj[:, 1] += label['height']/2
-
-
-                # 进行矩形框滤波，并获取对应的聚类id（在矩形框内点数最多的类别的id）
-                object_id_ = filter_by_bouding_box(point_cloud_obj, object_ids_, dims)
-
-                if object_id_ is None:
-                    continue
-                    
-                identified.add(object_id_)
-
-                # 获取对应聚类的点云id
-                idx_object = np.asarray(idx)[object_ids_ == object_id_]
-
-
-                # 构建对应的点云dataframe
-                N = len(idx_object)
-                df_point_cloud_with_normal = get_object_pcd_df(segmented_objects, idx_object, N)
-
-                # 获取类别:
-                category = get_object_category(label['type'])
-                # 获取对应点云的中心
-                center = np.asarray(segmented_objects.points)[idx_object].mean(axis = 0)
-                #print("center",label)
-
-                add_label(dataset_label, category, label, N, center)
-                #print("dataset label",dataset_label)
-                dataset_index = len(dataset_label[category]['type'])
-                df_point_cloud_with_normal.to_csv(
-                        os.path.join(output_dir, category, f'{dataset_index:06d}.txt'),
-                        index=False, header=None
-                    )
-    for category in ['vehicle', 'pedestrian', 'cyclist', 'misc']:
-        dataset_label[category] = pd.DataFrame.from_dict(
-            dataset_label[category]
-        )
-        dataset_label[category].to_csv(
-            os.path.join(output_dir, f'{category}.txt'),
-            index=False
-        )            
     # %%
 """
 TODO: use multiprogramming to increase the speed of processing

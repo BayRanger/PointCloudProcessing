@@ -47,7 +47,7 @@ def is_inliner_test():
         print("is_inliner_test fails")
      
 
-def run_ransac(data,threshold=1,max_iterations=400,subset_size=20000):
+def run_ransac(data,threshold=0.5,max_iterations=400,subset_size=20000):
     #init value
     max_inliner=0
     best_param = None

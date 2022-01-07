@@ -18,6 +18,8 @@ class KNNResultSet:
         self.count = 0
         self.worst_dist = 1e10
         self.dist_index_list = []
+        self.dist_list =[]
+        self.index_list=[]
         for i in range(capacity):
             self.dist_index_list.append(DistIndex(self.worst_dist, 0))
 
@@ -31,6 +33,9 @@ class KNNResultSet:
 
     def worstDist(self):
         return self.worst_dist
+    
+    def setFeature(self,somestring):
+        self.feature_ = somestring
 
     def add_point(self, dist, index):
         self.comparison_counter += 1
@@ -55,7 +60,13 @@ class KNNResultSet:
     def __str__(self):
         output = ''
         for i, dist_index in enumerate(self.dist_index_list):
-            output += '%d - %.2f\n' % (dist_index.index, dist_index.distance)
+            output+='index '
+            output += '%d, ' % (dist_index.index)
+        output +='\ndist'
+        for i, dist_index in enumerate(self.dist_index_list):
+            output += '%.6f, ' % (dist_index.distance)
+        output +='\n'
+
         output += 'In total %d comparison operations.' % self.comparison_counter
         return output
 
@@ -66,7 +77,8 @@ class RadiusNNResultSet:
         self.count = 0
         self.worst_dist = radius
         self.dist_index_list = []
-
+        self.dist_list =[]
+        self.index_list=[]
         self.comparison_counter = 0
 
     def size(self):
@@ -82,6 +94,10 @@ class RadiusNNResultSet:
 
         self.count += 1
         self.dist_index_list.append(DistIndex(dist, index))
+        if dist == 0:
+            return
+        self.dist_list.append(dist)
+        self.index_list.append(index)
 
     def __str__(self):
         self.dist_index_list.sort()

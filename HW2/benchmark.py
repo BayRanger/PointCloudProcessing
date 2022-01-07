@@ -53,12 +53,17 @@ def KDTreeBenchmark(root_dir,files,k,leaf_size,radius,feature=None,feature2=None
         begin_t = time.time()
         result_set = RadiusNNResultSet(radius=radius)
         kdtree.kdtree_radius_search(root, db_np, result_set, query)
-        #print(result_set)
+        print("query is",query)
+        print(result_set)
+        print("dist_list",result_set.dist_list)
         radius_time_sum += time.time() - begin_t
         #print("--------")
         begin_t = time.time()
+        print("db_np size",np.shape(db_np))
         diff = np.linalg.norm(np.expand_dims(query, 0) - db_np, axis=1)
+        print("diff size",np.shape(diff))
         nn_idx = np.argsort(diff)
+        print("nn_idx size",np.shape(nn_idx))
         nn_dist = diff[nn_idx]
         #print(nn_idx[0:k])
         #print(nn_dist[0:k])

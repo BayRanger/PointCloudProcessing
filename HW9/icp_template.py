@@ -29,9 +29,11 @@ def find_matchings(src_features, tgt_features,
     dist_thres = 
     matchings = []
     
-    for src_idx in range(N):
+    for src_idx in range(1):
         src_feature = src_features[:,src_idx]
         # find src_feature in tgt_tree and get their distance
+        # set a range to search for neighbor
+        
         dist = 
         
         # if their distance is small enough, consider them as a pair

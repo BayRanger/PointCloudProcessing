@@ -4,6 +4,7 @@
 # %%
 from scipy.spatial.transform import Rotation  
 from util import * 
+import numpy
 # %% 
     
 def preprocess_point_cloud(pcd, voxel_size):
@@ -25,6 +26,17 @@ def preprocess_point_cloud(pcd, voxel_size):
 def VisualizePcd(pcd):
     o3d.visualization.draw_geometries([pcd])
 
+
+def procrustes_transform(A,B,k=3):
+    L = np.eye(k) - np.ones([k,k])*1/k
+    print("Ap shape",np.shape(L),"A",np.shape(A))
+    Ap =np.matmul(A.T,L)
+    Bp = np.matmul(B.T,L)
+    U,S,V= np.linalg.svd(np.matmul(Bp,Ap.T))
+    R=U@V
+    t=1/k*(B.T -R@A.T)@np.ones([k,1])
+    
+    return R,t
 
 def procrustes_transformation(A, B):
     """ Procrustes was a rogue smith and bandit from Attica who attacked people 
@@ -58,7 +70,7 @@ def procrustes_transformation(A, B):
     
     return R,t
 
-def getMatchesFromFeature(src_features,tgt_features):
+def getMatchesFromFeature(src_features,tgt_features,src_data,tgt_data):
     """The matches are formed based on the feature descriptors
 
     Parameters
@@ -69,6 +81,9 @@ def getMatchesFromFeature(src_features,tgt_features):
     tgt_features : [numpy.array  m*N]
         [description]
         target features
+    src_data
+    tgt_data    
+    
 
     Returns
     -------
@@ -100,8 +115,9 @@ def getMatchesFromFeature(src_features,tgt_features):
             if (key in tgt_match_dict[idx]):
                 #TODO: if there are any conditions should be satisfied.
                 #print("find a pair",key,", ",idx)
+                #if(np.linalg.norm(src_data[key]-tgt_data[idx],2)<4):
                 matchings.append((key,idx))
-                break
+                #break
     return matchings
 
 # %%
@@ -125,7 +141,61 @@ def stirng2File(idx1,idx2,R,t):
     out_file.write(Rt2string(idx1,idx2,R,t))
     out_file.close()
         
+def find_accociations(src_all_data,tgt_all_data,R_prev,t_prev,threshold,tgttree):
+    """[summary]
+
+    Parameters
+    ----------
+    src_pts : numpy.array
+        The original data
+    R_init : 3*3 numpy.array
+        Previous Rotation matrix
+    t_init : 3*1 numpy.array
+        Previous translation vector
+    threshold : float
+        Decide if the pair is too far away
+    tgttree : Kdtree
+        A tree stores all the data information
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    N= np.shape(src_all_data)[1]
+    # move the data based on the initial information
+    transformed_src_data = R_prev@src_all_data+ t_prev.reshape((3,1))
+    # # Try to match every point in the  stc
+    # #match_pairs=[]
+    # matched_src_data=[]
+    # matched_tgt_data=[]
+    # for i in range(N):
+    #     to_match_pt = transformed_src_data[:,[i]]
+    #     _,match_idx,dists =tgt_data_tree.search_knn_vector_xd(to_match_pt,1)
+    #     #if (np.linalg,norm(to_match_pt - tgt)
+    #     if dists[0]<threshold:
+    #         #match_pairs.append([i,match_idx[0]])
+    #         matched_src_data.append(transformed_src_data[:,i])
+    #         matched_tgt_data.append(tgt_all_data[:,match_idx[0]])
+    matched_src_data = transformed_src_data
+    matched_tgt_data = tgt_all_data
+    print("HHHHHHHHHH",np.shape(matched_src_data))
+    num = (np.shape(matched_src_data))[0]
+# %%
+    new_R,new_t = procrustes_transformation(matched_src_data.T,matched_tgt_data.T)
+    R_update = new_R@R_prev
+    t_update = np.array(new_t).reshape((3,1))+ np.array(t_prev).reshape((3,1))
+    final_q =Rotation.from_matrix(R_update).as_quat()
+    # prev_cost= 1.0/N*np.linalg.norm(R_prev@matched_src_data.T+t_prev.reshape((3,1)) - matched_tgt_data.T)
+    cost =np.linalg.norm(new_R@matched_src_data+new_t - matched_tgt_data)
+    matches =np.linalg.norm(new_R@matched_src_data+new_t - matched_tgt_data,axis=0)
+    threshold =1
+    match_num =np.sum(matches<threshold)
+    print("matches ",match_num)
+    #print("final q ",final_q,"  final t",new_t)
     
+    
+    return R_update,t_update, cost 
 
     
 
@@ -134,7 +204,7 @@ def stirng2File(idx1,idx2,R,t):
 if __name__ == "__main__":
     
     #load data
-    idx1="0"
+    idx1="643"
     idx2="456"
     filename1 = ("/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/{}.bin").format(idx1)
     filename2 = "/home/chahe/project/PointCloud3D/dataset/registration_dataset/point_clouds/"+idx2+".bin"
@@ -143,22 +213,20 @@ if __name__ == "__main__":
     src_all_data = np.asarray(source_pcd.points).T
     tgt_all_data = np.asarray(target_pcd.points).T
     #test_pcd =io.read_point_cloud_bin(filename1)
-    #source_pcd.points
+
     # %%
-     #VisualizePcd(source_pcd)
-    #VisualizePcd(target_pcd)
-    # src_features, tgt_features: (length of feature, #points)
-    voxel_size =2
+    voxel_size =1
     source_down, source_fpfh = preprocess_point_cloud(source_pcd,voxel_size)
     target_down, target_fpfh = preprocess_point_cloud(target_pcd, voxel_size)
     source_data = np.asarray(source_down.points)
     target_data = np.asarray(target_down.points)
     src_features = np.asarray(source_fpfh.data)
     tgt_features = np.asarray(target_fpfh.data)
-    matchings =getMatchesFromFeature(src_features, tgt_features)
+    matchings =getMatchesFromFeature(src_features, tgt_features,source_data,target_data)
 
- # %%
-    sample_num=9
+
+# %%
+    sample_num=5
     pairs_num =len(matchings)
     A_in_order =np.zeros((pairs_num,3))
     B_in_order =np.zeros((pairs_num,3))
@@ -171,30 +239,31 @@ if __name__ == "__main__":
 # %%
     init_R=None
     init_t=None
-    min_res= 100000
+    match_max=0
     max_iter=4000
+    d_thre=0.5
     for i in range(max_iter):
         A_tmp = np.zeros((sample_num,3))
         B_tmp = np.zeros((sample_num,3))
         matches_set = np.random.randint(0,pairs_num,sample_num)
         # build random sample
         for j in range(sample_num):
-            src_idx = matchings[matches_set[j]][0]
-            tgt_idx = matchings[matches_set[j]][1]
-            A_tmp[j]=source_data[src_idx]
-            B_tmp[j]=target_data[tgt_idx]
+            A_tmp[j]=A_in_order[matches_set[j]]
+            B_tmp[j]=B_in_order[matches_set[j]]
 
         R,t = procrustes_transformation(A_tmp,B_tmp)
         new_A =(R@(A_in_order.T)+t).T
-        diff = np.linalg.norm(new_A - B_in_order)
+        dis = np.linalg.norm(new_A - B_in_order,axis=1)
+        match_num=np.sum(dis<d_thre)
+        print("dist is",np.shape(dis),"new_A",np.shape(new_A))
 
-        if (diff<min_res):
+        if (match_num>match_max):
             init_R=R
             init_t=t
-            min_res = diff
+            match_max = match_num
     print("best init R ",init_R)
     print("best init t ",init_t)
-    stirng2File(idx1,idx2,init_R,init_t)
+    #stirng2File(idx1,idx2,init_R,init_t)
 
  
  
@@ -203,72 +272,22 @@ if __name__ == "__main__":
     # Do the icp
 # %%  
 
-    def find_accociations(src_all_data,tgt_all_data,R_prev,t_prev,threshold,tgttree):
-        """[summary]
 
-        Parameters
-        ----------
-        src_pts : numpy.array
-            The original data
-        R_init : 3*3 numpy.array
-            Previous Rotation matrix
-        t_init : 3*1 numpy.array
-            Previous translation vector
-        threshold : float
-            Decide if the pair is too far away
-        tgttree : Kdtree
-            A tree stores all the data information
-
-        Returns
-        -------
-        [type]
-            [description]
-        """
-        N= np.shape(src_all_data)[1]
-        # move the data based on the initial information
-        transformed_src_data = R_prev@src_all_data+ t_prev.reshape((3,1))
-        # Try to match every point in the  stc
-        #match_pairs=[]
-        matched_src_data=[]
-        matched_tgt_data=[]
-        for i in range(N):
-            to_match_pt = transformed_src_data[:,[i]]
-            _,match_idx,dists =tgt_data_tree.search_knn_vector_xd(to_match_pt,1)
-            #if (np.linalg,norm(to_match_pt - tgt)
-            if dists[0]<threshold:
-                #match_pairs.append([i,match_idx[0]])
-                matched_src_data.append(transformed_src_data[:,i])
-                matched_tgt_data.append(tgt_all_data[:,match_idx[0]])
-        matched_src_data = np.asarray(matched_src_data)
-        matched_tgt_data = np.asarray(matched_tgt_data)
-        new_R,new_t = procrustes_transformation(matched_src_data,matched_tgt_data)
-        R_update = new_R@R_prev
-        t_update = np.array(new_t).reshape((3,1))+ np.array(t_prev).reshape((3,1))
-        final_q =Rotation.from_matrix(R_update).as_quat()
-       # prev_cost= 1.0/N*np.linalg.norm(R_prev@matched_src_data.T+t_prev.reshape((3,1)) - matched_tgt_data.T)
-        cost = 1.0/N*np.linalg.norm(new_R@matched_src_data.T+new_t - matched_tgt_data.T)
-        #print("final q ",final_q,"  final t",new_t)
-        
-        
-        return R_update,t_update, cost 
 
     tgt_data_tree = o3d.geometry.KDTreeFlann(tgt_all_data)
-
+    cost_prev=1000000
     for i in range(20):
-        R_,t_,cost_ =find_accociations(src_all_data,tgt_all_data,init_R,init_t,1,tgt_data_tree)
+        R_,t_,cost_ =find_accociations(A_in_order.T,B_in_order.T,init_R,init_t,0.5,tgt_data_tree)
         init_R = R_
         init_t = t_
+        if(cost_>cost_prev):
+            break
+        else:
+            cost_prev=cost_
+        
         print("after #",i, " udpate, cost is ",cost_)
-    
+    stirng2File(idx1,idx2,init_R,init_t)
+
+
  
-#stirng2File(idx1,idx2,R_,t_)
-    #def find_accociations(src_all_data,tgt_all_data,R_prev,t_init,threshold,tgttree):
-    
-
-
-# test the performance
-    
- 
-
-# %%
 

@@ -96,6 +96,6 @@ if __name__ == "__main__":
     iss_idxs = getIssKeyPointIdx(filename)
  
     iss_points = points[iss_idxs]
-    print((iss_idxs[353]),iss_idxs[350],iss_idxs[343])
+    #print((iss_idxs[353]),iss_idxs[350],iss_idxs[343])
     point_cloud_o3d.points =o3d.utility.Vector3dVector(iss_points)
     o3d.visualization.draw_geometries_with_editing([point_cloud_o3d])
